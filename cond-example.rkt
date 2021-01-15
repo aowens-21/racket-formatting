@@ -5,17 +5,10 @@
                      syntax/parse))
 
 (begin-for-syntax
-  (define (syntax->list/named stx [base "g"])
-    (define stxs (syntax-e stx))
-    (unless (list? stxs)
-      (raise-argument-error 'syntax->list/named
-                            "(and/c syntax? (λ (stx) (list? (syntax-e stx))))"
-                            stxs))
-    (for/lists (stxs/name names)
-               ([stx (in-list stxs)])
-      (define name (gensym base))
-      (values (syntax-property stx 'syncheck:format:name name)
-              name)))
+  (define (attach-name stx [base "g"])
+    (define name (gensym base))
+    (values (syntax-property stx 'syncheck:format:name name)
+            name))
   )
 
 ;; FIXME handle `else` and properly format it because
@@ -27,7 +20,9 @@
      (define-values (exprss/name namess)
        (for/lists (exprss/name namess)
                   ([exprs (in-syntax #'((expr ...) ...))])
-         (syntax->list/named exprs "my-cond.clause")))
+         (for/lists (exprs/name names)
+                    ([expr (in-syntax exprs)])
+           (attach-name expr "my-cond.clause"))))
      (with-syntax ([((expr ...) ...) exprss/name])
        (syntax-property
         (syntax/loc stx (cond [expr ...] ...))
