@@ -113,8 +113,6 @@
                  (sub1 (+ pos span))))]
     [`#(<> ,elements ...)
      (for ([(element idx) (in-indexed elements)])
-       (when (> idx 0)
-         (write-char #\space))
        (pretty-print-not-really element))]
     [`#($$ ,elements ...)
      (for ([(element idx) (in-indexed elements)])
@@ -128,8 +126,12 @@
      (for ([previous-line-number (in-list (cons line0 line))]
            [current-line-number (in-list line)]
            [element (in-list elements)])
-       (for ([i (in-range (- current-line-number previous-line-number))])
-         (pretty-print-not-really-newline))
+       (cond
+         [(> current-line-number previous-line-number)
+          (for ([i (in-range (- current-line-number previous-line-number))])
+            (pretty-print-not-really-newline))]
+         [else
+          (write-char #\space)])
        (pretty-print-not-really element))]
     [`#(preserve-linebreak ,elements ...)
      (for ([(element idx) (in-indexed elements)])
