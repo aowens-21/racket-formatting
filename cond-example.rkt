@@ -13,6 +13,8 @@
             name))
   )
 
+(port-count-lines! (current-output-port))
+
 ;; FIXME handle `else` and properly format it because
 ;; it is moved into the 'disappeared-use property
 (define-syntax (my-cond stx)
@@ -31,12 +33,28 @@
         'syncheck:format
         `#(<> "("
               ,(symbol->string (syntax-e #'form))
+              ;; TODO: Think about a construct for spacing/indenting between elements,
+              ;; instead of this explicit space
+              " "
               #($$ ,@(for/list ([names (in-list namess)])
                        `#(<> "[" #(preserve-linebreak ,@names) "]")))
               ")")))]))
 
-
-
+(define-syntax (my-let stx)
+  (syntax-parse stx
+    [(form ([lhs rhs] ...) body-expr ...+)
+     (define-values (exprss/name namess)
+       (for/lists (exprss/name namess)
+                  ([exprs (in-syntax #'((lhs rhs) ...))])
+         (for/lists (exprs/name names)
+                    ([expr (in-syntax exprs)])
+           (attach-name expr "my-let.clause"))))
+     (define-values (body-exprss/name body-namess)
+       (for/lists (body-exprss/name body-namess)
+                  ([body (in-syntax #'(body-expr ...))])
+         (attach-name body "my-let-body.clause")))
+     #'TODO]))
+     
 (define (extract-name-syntax-maps stx)
   (define table (make-hash))
   (define (do-traverse stx)
@@ -99,8 +117,12 @@
     [else
      (construct-pretty-print-info table pp-info)]))
 
+(define pretty-print-indentation (make-parameter 0))
+
 (define (pretty-print-not-really-newline)
-  (newline))
+  (newline)
+  (for ([i (in-range (pretty-print-indentation))])
+    (write-char #\space)))
 
 (define (pretty-print-not-really pp-info)
   (match pp-info
@@ -114,31 +136,47 @@
     [`#(<> ,elements ...)
      (for ([(element idx) (in-indexed elements)])
        (pretty-print-not-really element))]
-    [`#($$ ,elements ...)
-     (for ([(element idx) (in-indexed elements)])
-       (when (> idx 0)
-         (pretty-print-not-really-newline))
-       (pretty-print-not-really element))]
+    [`#($$ ,element0 ,elements ...)
+     (indent-at-current-col
+      (lambda ()
+        (pretty-print-not-really element0)
+        (for ([(element idx) (in-indexed elements)])
+          (pretty-print-not-really-newline)
+          (pretty-print-not-really element))))]
+    [`#($$)
+     (void)]
     [`#(preserve-linebreak
         ,(and element0 `#(source ,source0 ,line0 ,col0 ,span0 ,pos0))
         ,(and elements `#(source ,source ,line ,col ,span ,pos)) ...)
-     (pretty-print-not-really element0)
-     (for ([previous-line-number (in-list (cons line0 line))]
-           [current-line-number (in-list line)]
-           [element (in-list elements)])
-       (cond
-         [(> current-line-number previous-line-number)
-          (for ([i (in-range (- current-line-number previous-line-number))])
-            (pretty-print-not-really-newline))]
-         [else
-          (write-char #\space)])
-       (pretty-print-not-really element))]
+     (indent-at-current-col
+      (lambda ()
+        (pretty-print-not-really element0)
+        (for ([previous-line-number (in-list (cons line0 line))]
+              [current-line-number (in-list line)]
+              [element (in-list elements)])
+          (cond
+            [(> current-line-number previous-line-number)
+             (pretty-print-not-really-newline)]
+            [else
+             (write-char #\space)])
+          (pretty-print-not-really element))))]
     [`#(preserve-linebreak ,elements ...)
      (for ([(element idx) (in-indexed elements)])
        (when (> idx 0)
          (write-char #\space))
        (pretty-print-not-really element))]))
 
+(define (indent-at-current-col proc)
+  (define-values (line col pos)
+    (port-next-location (current-output-port)))
+  (parameterize ((pretty-print-indentation col))
+    (proc)))
+
+(define (pretty-print stx)
+  (define expanded-stx (expand stx))
+  (pretty-print-not-really
+   (construct-pretty-print-info-from-syntax (extract-name-syntax-maps expanded-stx)
+                                            expanded-stx)))
 #|
 (expand
  #`(cond
@@ -154,17 +192,13 @@
 |#
 
 (define my-cond-stx-1
-  (expand
-   #'(my-cond (#f "false") [(< 10 5) "a"] (#t "b") (else
+   #'(my-cond (#f "false") [(< 10 5)
+                            "a"] (#t "b") (else
                                                     #f)
-              )))
+              ))
 
-(define tbl-1
-  (extract-name-syntax-maps my-cond-stx-1))
-
-(pretty-print-not-really
-(construct-pretty-print-info-from-syntax tbl-1
-                                         my-cond-stx-1))
+(pretty-print my-cond-stx-1)
+(newline)
 
 #|
 (expand
@@ -172,6 +206,15 @@
             (else
              #f)))
 |#
+
+(define my-cond-stx-2
+   #'(my-cond ((my-cond ((not #f)
+                         'is-true)))
+              (else
+             #f)))
+
+(pretty-print my-cond-stx-2)
+
 
 #;
 '(
