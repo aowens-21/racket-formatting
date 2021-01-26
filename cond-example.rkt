@@ -40,6 +40,9 @@
                        `#(<> "[" #(preserve-linebreak ,@names) "]")))
               ")")))]))
 
+(let ([a 10])
+  ...)
+
 (define-syntax (my-let stx)
   (syntax-parse stx
     [(form ([lhs rhs] ...) body-expr ...+)
@@ -53,7 +56,50 @@
        (for/lists (body-exprss/name body-namess)
                   ([body (in-syntax #'(body-expr ...))])
          (attach-name body "my-let-body.clause")))
-     #'TODO]))
+     (with-syntax ([((lhs rhs) ...) exprss/name]
+                   [(body-expr ...) body-exprss/name])
+       (syntax-property
+        (syntax/loc stx (let ([lhs rhs] ...) body-expr ...))
+        'syncheck:format
+        `#($$ `#(<> "("
+                    ,(symbol->string (syntax-e #'form))
+                    " ("
+                    #($$ ,@(for/list ([names (in-list namess)])
+                             `#(<> "["
+                                   (list-ref names 0)
+                                   " "
+                                   (list-ref names 1)
+                                   "]")))
+                    ")")
+              
+
+#|
+
+What are our goals (for now)?
+
+1. Check if our combinator "language" can express my-cond and my-let
+  formatting rules
+
+2. Define what each combinator means
+
+|#
+
+
+#|
+
+Current Formatting Language
+
+<> - prints each element consecutively (not smart, will probably break for multi-line elements)
+$$ - inserts each element with a linebreak in between, and each element starts at the same column
+preserve-linebreak - uses existing line break information to decide whether to print one line between elements or just a space
+string - prints the literal string
+source - looks up the source location in the file and prints it (starting at source location and using span)
+
+TODOS:
+- Come up with a combinator that handles nesting
+- Also come up with a combinator that decides whether or not to break lines between elements
+
+|#
      
 (define (extract-name-syntax-maps stx)
   (define table (make-hash))
@@ -260,3 +306,20 @@
   ;; =>
   'clause1.A
   )
+
+#|
+
+(my-let ([a 10] [b 5] [c
+                       20])
+   (+ a b
+        c))
+
+--->
+
+(my-let ([a 10]
+         [b 5]
+         [c 20])
+   (+ a b
+        c))
+
+|#
