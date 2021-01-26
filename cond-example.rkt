@@ -40,8 +40,19 @@
                        `#(<> "[" #(preserve-linebreak ,@names) "]")))
               ")")))]))
 
-(let ([a 10])
-  ...)
+#|
+    |"(" "let" " (" |"[" a 10 ... "]"
+                    |"[" ..... "]" ")"
+
+    |__ body.... ")"
+|#
+
+
+#|
+    "("|"let" " (" |"[" a 10 ... "]"
+                   |"[" ..... "]" ")"
+       |_body....         ")"
+|#
 
 (define-syntax (my-let stx)
   (syntax-parse stx
@@ -61,17 +72,20 @@
        (syntax-property
         (syntax/loc stx (let ([lhs rhs] ...) body-expr ...))
         'syncheck:format
-        `#($$ `#(<> "("
-                    ,(symbol->string (syntax-e #'form))
-                    " ("
-                    #($$ ,@(for/list ([names (in-list namess)])
-                             `#(<> "["
-                                   (list-ref names 0)
-                                   " "
-                                   (list-ref names 1)
-                                   "]")))
-                    ")")
-              
+        `#(<> "("
+              #($$ #(<> ,(symbol->string (syntax-e #'form))
+                        " ("
+                        #($$ ,@(for/list ([names (in-list namess)])
+                                 `#(<> "["
+                                       ,(list-ref names 0)
+                                       " "
+                                       ,(list-ref names 1)
+                                       "]")))
+                        ")")
+                   #(nest 1
+                          #($$ ,@(for/list ([body-name (in-list body-namess)])
+                                   body-name))))
+              ")")))]))
 
 #|
 
@@ -89,15 +103,27 @@ What are our goals (for now)?
 
 Current Formatting Language
 
-<> - prints each element consecutively (not smart, will probably break for multi-line elements)
-$$ - inserts each element with a linebreak in between, and each element starts at the same column
-preserve-linebreak - uses existing line break information to decide whether to print one line between elements or just a space
-string - prints the literal string
-source - looks up the source location in the file and prints it (starting at source location and using span)
+string
+    prints the literal string
+#(source source-file line column position span)
+    looks up the source location in the file and prints it (starting at
+    source location and using span)
+#(<> element ...)
+    prints each element consecutively (not smart, will probably break
+    for multi-line elements)
+#($$ element ...)
+    inserts each element with a linebreak in between, and each element
+    starts at the same column
+#(preserve-linebreak element ...)
+    uses existing line break information to decide whether to print one
+    line between elements or just a space
+#(nest int element)
+    increase the nesting depth by int columns
 
 TODOS:
 - Come up with a combinator that handles nesting
 - Also come up with a combinator that decides whether or not to break lines between elements
+- The comment information is dropped entirely
 
 |#
      
@@ -148,7 +174,10 @@ TODOS:
     [`#(preserve-linebreak ,elements ...)
      `#(preserve-linebreak
         ,@(for/list ([element (in-list elements)])
-            (construct-pretty-print-info table element)))]))
+            (construct-pretty-print-info table element)))]
+    [`#(nest ,depth ,element)
+     `#(nest ,depth
+             ,(construct-pretty-print-info table element))]))
 
 (define (construct-pretty-print-info-from-syntax table stx)
   (define pp-info
@@ -158,8 +187,8 @@ TODOS:
      `#(source ,(syntax-source stx)
                ,(syntax-line stx)
                ,(syntax-column stx)
-               ,(syntax-span stx)
-               ,(syntax-position stx))]
+               ,(syntax-position stx)
+               ,(syntax-span stx))]
     [else
      (construct-pretty-print-info table pp-info)]))
 
@@ -174,7 +203,7 @@ TODOS:
   (match pp-info
     [(? string? s)
      (write-string s)]
-    [`#(source ,source ,line ,col ,span ,pos)
+    [`#(source ,source ,line ,col ,pos ,span)
      (write-string
       (substring (file->string source)
                  (sub1 pos)
@@ -192,8 +221,8 @@ TODOS:
     [`#($$)
      (void)]
     [`#(preserve-linebreak
-        ,(and element0 `#(source ,source0 ,line0 ,col0 ,span0 ,pos0))
-        ,(and elements `#(source ,source ,line ,col ,span ,pos)) ...)
+        ,(and element0 `#(source ,source0 ,line0 ,col0 ,pos0 ,span0))
+        ,(and elements `#(source ,source ,line ,col ,pos ,span)) ...)
      (indent-at-current-col
       (lambda ()
         (pretty-print-not-really element0)
@@ -210,7 +239,13 @@ TODOS:
      (for ([(element idx) (in-indexed elements)])
        (when (> idx 0)
          (write-char #\space))
-       (pretty-print-not-really element))]))
+       (pretty-print-not-really element))]
+    [`#(nest ,(? exact-integer? depth) ,element)
+     (for ([i (in-range depth)])
+       (write-char #\space))
+     (indent-at-current-col
+      (lambda ()
+        (pretty-print-not-really element)))]))
 
 (define (indent-at-current-col proc)
   (define-values (line col pos)
@@ -218,7 +253,7 @@ TODOS:
   (parameterize ((pretty-print-indentation col))
     (proc)))
 
-(define (pretty-print stx)
+(define (racket-format stx)
   (define expanded-stx (expand stx))
   (pretty-print-not-really
    (construct-pretty-print-info-from-syntax (extract-name-syntax-maps expanded-stx)
@@ -243,7 +278,7 @@ TODOS:
                                                     #f)
               ))
 
-(pretty-print my-cond-stx-1)
+(racket-format my-cond-stx-1)
 (newline)
 
 #|
@@ -259,7 +294,8 @@ TODOS:
               (else
              #f)))
 
-(pretty-print my-cond-stx-2)
+(racket-format my-cond-stx-2)
+(newline)
 
 
 #;
@@ -323,3 +359,22 @@ TODOS:
         c))
 
 |#
+
+(define my-let-stx-1
+  #'(my-let ([a 10] [b 5] [c
+                       20])
+         (+ a b
+              c)))
+
+(racket-format my-let-stx-1)
+(newline)
+
+(define my-let-stx-2
+  #'(my-let ([a 10] [b 5] [c
+                       (* 7
+                          3)])
+         (+ a b
+              c)))
+
+(racket-format my-let-stx-2)
+(newline)
