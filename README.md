@@ -1,1 +1,94 @@
-# racket-formatting
+# Racket Formatting
+
+## Memo
+### What are our goals (for now)?
+
+1. Check if our combinator "language" can express my-cond and my-let
+    formatting rules
+
+2. Define what each combinator means
+
+### TODOS:
+
+- Come up with a combinator that handles nesting
+- Also come up with a combinator that decides whether or not to break lines between elements
+- The comment information is dropped entirely
+
+## Current Formatting Language
+
+- `string`
+
+    prints the literal string
+
+- `#(source source-file line column position span)`
+
+    looks up the source location in the file and prints it (starting at
+    source location and using span)
+
+- `#(<> element ...)`
+
+    prints each element consecutively (not smart, will probably break
+    for multi-line elements)
+
+- `#($$ element ...)`
+
+    inserts each element with a linebreak in between, and each element
+    starts at the same column
+
+- `#(preserve-linebreak element ...)`
+
+    uses existing line break information to decide whether to print one
+    line between elements or just a space
+
+- `#(nest int element)`
+
+    increase the nesting depth by int columns
+
+## Misc old comments
+
+```racket
+#;
+'(
+  ;; pretty-formatting of cond forms
+  (my-cond (#f "false") [(< 10 5) "a"] (#t "b") (else
+                                                 #f)
+           )
+  ;=>
+  (my-cond [#f "false"]
+           [(< 10 5) "a"]
+           [#t "b"]
+           [else
+            #f])
+
+
+
+  ;; recursive call of pretty-print-doc, a hypothetical function for
+  ;; computing the data structure representation of pretty-printing
+  ;; information.
+  (pretty-print-doc
+   (my-cond (#f "false") [(< 10 5) "a"] (#t "b") (else
+                                                  #f)
+            ))
+  ;=>
+  #(<>
+    "(my-cond"
+    #($$ #(<> "[" 'clause1.Q 'clause1.A "]")
+         #(<> "[" 'clause2.Q 'clause2.A "]")
+         #(<> "[" 'clause3.Q 'clause3.A "]"))
+    ")")
+  ;; where
+  'clause1.Q #f
+  'clause1.A "false"
+  etc.
+
+  ;; and
+  (pretty-print-doc #f)
+  ;; =>
+  'clause1.Q
+
+  ;; and
+  (pretty-print-doc "false")
+  ;; =>
+  'clause1.A
+  )
+```
