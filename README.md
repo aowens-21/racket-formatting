@@ -10,7 +10,26 @@
 
 ### TODOS:
 
-- Come up with a combinator that handles nesting
+- Shift the indentation of the `#(source ...)` block
+
+    ```racket
+             [a]bcdef
+               ghijk
+           lmnop
+    
+       |#(source ...)
+    =>
+       |[a]bcdef
+       |  ghijk
+      lmnop
+    ```
+
+- Think: racket-format currently includes syntax information from `'disappeared-use`.
+  Do we want to ignore `'disappeared-use` and have an optional opt-in instruction in the
+  formatting language instead?
+    * The macro authors should correctly produce pretty printing annotations,
+      including identifiers that will disappear (e.g. `else` in `cond`).
+      But perhaps manually producing that is inconvenient.
 - Also come up with a combinator that decides whether or not to break lines between elements
 - The comment information is dropped entirely
 
@@ -45,6 +64,27 @@
     increase the nesting depth by int columns
 
 ## Misc old comments
+
+cond drops syntax properties on each clauses
+
+```racket
+#|
+(expand
+ #`(cond
+     ;; the syntax property attached to the clauses will be dropped by cond
+     #,(syntax-property #`['no #,(syntax-property #''get
+                                                  'GET
+                                                  "HERE")]
+                        'clause
+                        "This syntax property is gone")
+     [else #,(syntax-property #''okay
+                              'else
+                              "OKAY")]))
+|#
+
+```
+
+others
 
 ```racket
 #;

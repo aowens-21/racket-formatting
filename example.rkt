@@ -2,9 +2,12 @@
 
 (require racket/match
          racket/file
+         racket/port
          (for-syntax racket/base
                      racket/sequence
                      syntax/parse))
+
+(provide (all-defined-out))
 
 (begin-for-syntax
   (define (attach-name stx [base "g"])
@@ -12,8 +15,6 @@
     (values (syntax-property stx 'syncheck:format:name name)
             name))
   )
-
-(port-count-lines! (current-output-port))
 
 ;; FIXME handle `else` and properly format it because
 ;; it is moved into the 'disappeared-use property
@@ -87,7 +88,8 @@
                                    body-name))))
               ")")))]))
      
-(define (extract-name-syntax-maps stx)
+(define (extract-name-syntax-maps stx
+                                  #:check-disappeared-use? [check-disappeared-use? #f])
   (define table (make-hash))
   (define (do-traverse stx)
     (define name (syntax-property stx 'syncheck:format:name))
@@ -108,6 +110,16 @@
       [else (void)]))
 
   (do-traverse stx)
+  (when check-disappeared-use?
+    (define uses (syntax-property stx 'disappeared-use))
+    (let loop ([use uses])
+      (cond
+        [(syntax? use)
+         (do-traverse use)]
+        [(pair? use)
+         (loop (car use))
+         (loop (cdr use))]
+        [else (void)])))
   table)
 
 (define (construct-pretty-print-info table pp-info)
@@ -215,80 +227,12 @@
 
 (define (racket-format stx)
   (define expanded-stx (expand stx))
-  (pretty-print-not-really
-   (construct-pretty-print-info-from-syntax (extract-name-syntax-maps expanded-stx)
-                                            expanded-stx)))
-#|
-(expand
- #`(cond
-     ;; the syntax property attached to the clauses will be dropped by cond
-     #,(syntax-property #`['no #,(syntax-property #''get
-                                                  'GET
-                                                  "HERE")]
-                        'clause
-                        "This syntax property is gone")
-     [else #,(syntax-property #''okay
-                              'else
-                              "OKAY")]))
-|#
-
-(define my-cond-stx-1
-   #'(my-cond (#f "false") [(< 10 5)
-                            "a"] (#t "b") (else
-                                                    #f)
-              ))
-
-(racket-format my-cond-stx-1)
-(newline)
-
-#|
-(expand
- #'(my-cond ((my-cond ((not #f) 'is-true)))
-            (else
-             #f)))
-|#
-
-(define my-cond-stx-2
-   #'(my-cond ((my-cond ((not #f)
-                         'is-true)))
-              (else
-             #f)))
-
-(racket-format my-cond-stx-2)
-(newline)
-
-#|
-
-(my-let ([a 10] [b 5] [c
-                       20])
-   (+ a b
-        c))
-
---->
-
-(my-let ([a 10]
-         [b 5]
-         [c 20])
-   (+ a b
-        c))
-
-|#
-
-(define my-let-stx-1
-  #'(my-let ([a 10] [b 5] [c
-                       20])
-         (+ a b
-              c)))
-
-(racket-format my-let-stx-1)
-(newline)
-
-(define my-let-stx-2
-  #'(my-let ([a 10] [b 5] [c
-                       (* 7
-                          3)])
-         (+ a b
-              c)))
-
-(racket-format my-let-stx-2)
-(newline)
+  (define name-stx-map
+    (extract-name-syntax-maps
+     expanded-stx
+     #:check-disappeared-use? #t))
+  (with-output-to-string
+    (λ ()
+      (port-count-lines! (current-output-port))
+      (pretty-print-not-really
+       (construct-pretty-print-info-from-syntax name-stx-map expanded-stx)))))
