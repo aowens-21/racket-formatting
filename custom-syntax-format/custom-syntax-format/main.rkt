@@ -217,16 +217,20 @@
         ,(and elements `#(source ,source ,line ,col ,pos ,span)) ...)
      (indent-at-current-col
       (lambda ()
+        (define previous-line-no (get-current-line-number))
         (pretty-print-not-really element0)
-        (for ([previous-line-number (in-list (cons line0 line))]
-              [current-line-number (in-list line)]
-              [element (in-list elements)])
+        (for/fold ([previous-line-span (- (get-current-line-number) previous-line-no)])
+                  ([previous-line-number (in-list (cons line0 line))]
+                   [current-line-number (in-list line)]
+                   [element (in-list elements)])
           (cond
-            [(> current-line-number previous-line-number)
+            [(> current-line-number (+ previous-line-number previous-line-span))
              (pretty-print-not-really-newline)]
             [else
              (write-char #\space)])
-          (pretty-print-not-really element))))]
+          (define current-line-no (get-current-line-number))
+          (pretty-print-not-really element)
+          (- (get-current-line-number) current-line-no))))]
     [`#(preserve-linebreak ,elements ...)
      (for ([(element idx) (in-indexed elements)])
        (when (> idx 0)
@@ -244,6 +248,11 @@
     (port-next-location (current-output-port)))
   (parameterize ((pretty-print-indentation col))
     (proc)))
+
+(define (get-current-line-number)
+  (define-values (line col pos)
+    (port-next-location (current-output-port)))
+  line)
 
 (define (racket-format stx)
   (define expanded-stx (expand stx))
