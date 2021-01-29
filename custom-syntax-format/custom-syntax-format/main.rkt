@@ -171,15 +171,35 @@
   (for ([i (in-range (pretty-print-indentation))])
     (write-char #\space)))
 
+;; FIXME handle spaces
+(define (write-string/shift-indentation str shift-amount)
+  (define lines
+    (call-with-input-string str port->lines))
+  (for ([(a-line idx) (in-indexed (in-list lines))])
+    (define space-count-at-start
+      (string-length
+       (list-ref (cdr (regexp-match #rx"^([ \\t]*)" a-line))
+                 0)))
+    (parameterize ([pretty-print-indentation
+                    (max 0 (+ shift-amount space-count-at-start))])
+      (when (> idx 0)
+        (pretty-print-not-really-newline))
+      (write-string (substring a-line space-count-at-start)))))
+
 (define (pretty-print-not-really pp-info)
   (match pp-info
     [(? string? s)
      (write-string s)]
     [`#(source ,source ,line ,col ,pos ,span)
-     (write-string
-      (substring (file->string source)
-                 (sub1 pos)
-                 (sub1 (+ pos span))))]
+     (indent-at-current-col
+      (lambda ()
+        (write-string/shift-indentation
+         ;; Position and line locations are numbered from 1;
+         (substring (file->string source)
+                    (sub1 pos)
+                    (sub1 (+ pos span)))
+         ;; column locations are numbered from 0.
+         (- (pretty-print-indentation) col))))]
     [`#(<> ,elements ...)
      (for ([(element idx) (in-indexed elements)])
        (pretty-print-not-really element))]
