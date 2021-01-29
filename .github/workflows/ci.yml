@@ -16,12 +16,12 @@ jobs:
           distribution: minimal
           variant: ${{ matrix.racket-variant }}
           version: ${{ matrix.racket-version }}
+      - name: Installing at-exp and test commands
+        run: raco pkg install --auto base at-exp-lib compiler-lib
       - name: Checking racket version and installed libraries
         run: |
           racket -v
           raco pkg show -a
-      - name: Installing at-exp
-        run: raco pkg install --auto at-exp-lib
       - name: Installing custom-syntax-format and its dependencies
         run: raco pkg install --no-docs --auto --name custom-syntax-format ./custom-syntax-format
       - name: Checking installed libraries
