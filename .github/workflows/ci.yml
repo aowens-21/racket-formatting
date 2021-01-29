@@ -1,0 +1,30 @@
+on: [push, pull_request]
+name: CI
+jobs:
+  build:
+    name: "Build on Racket '${{ matrix.racket-version }}' (${{ matrix.racket-variant }})"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        racket-version: ["stable"]
+        racket-variant: ["CS"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: Bogdanp/setup-racket@v0.12
+        with:
+          architecture: x64
+          distribution: minimal
+          variant: ${{ matrix.racket-variant }}
+          version: ${{ matrix.racket-version }}
+      - name: Checking racket version and installed libraries
+        run: |
+          racket -v
+          raco pkg show -a
+      - name: Installing at-exp
+        run: raco pkg install --auto at-exp-lib
+      - name: Installing custom-syntax-format and its dependencies
+        run: raco pkg install --no-docs --auto --name custom-syntax-format ./custom-syntax-format
+      - name: Checking installed libraries
+        run: raco pkg show -a
+      - name: Testing custom-syntax-format
+        run: raco test -c tests/custom-syntax-format

@@ -1,7 +1,7 @@
 #lang at-exp racket/base
 
 (require rackunit
-         "example.rkt")
+         custom-syntax-format)
 
 (provide (all-defined-out))
 
