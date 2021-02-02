@@ -3,26 +3,13 @@
 ## Memo
 ### What are our goals (for now)?
 
-1. Check if our combinator "language" can express my-cond and my-let
-    formatting rules
+1. Figure out how to make combinators customizable for the user of the formatting tool,
+   types of customization configured by the macro authors.
 
-2. Define what each combinator means
+1a. Customizable combinators should provide some information for forms that don't have
+    a pretty printing specification (for example, DrRacket's default indentation rules)
 
 ### TODOS:
-
-- Shift the indentation of the `#(source ...)` block
-
-    ```racket
-             [a]bcdef
-               ghijk
-           lmnop
-    
-       |#(source ...)
-    =>
-       |[a]bcdef
-       |  ghijk
-      lmnop
-    ```
 
 - Think: racket-format currently includes syntax information from `'disappeared-use`.
   Do we want to ignore `'disappeared-use` and have an optional opt-in instruction in the
@@ -132,3 +119,23 @@ others
   'clause1.A
   )
 ```
+
+DONE - Shift the indentation of the `#(source ...)` block
+
+    ```racket
+             [a]bcdef
+               ghijk
+           lmnop
+    
+       |#(source ...)
+    =>
+       |[a]bcdef
+       |  ghijk
+      lmnop
+    ```
+## Finished Tasks
+
+1. Check if our combinator "language" can express my-cond and my-let
+    formatting rules
+
+2. Define what each combinator means
