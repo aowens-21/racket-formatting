@@ -254,14 +254,17 @@
     (port-next-location (current-output-port)))
   line)
 
-(define (racket-format stx)
+(define (construct-formatting-info stx)
   (define expanded-stx (expand stx))
   (define name-stx-map
     (extract-name-syntax-maps
      expanded-stx
      #:check-disappeared-use? #t))
+  (construct-pretty-print-info-from-syntax name-stx-map expanded-stx))
+
+(define (racket-format stx)
   (with-output-to-string
     (λ ()
       (port-count-lines! (current-output-port))
       (pretty-print-not-really
-       (construct-pretty-print-info-from-syntax name-stx-map expanded-stx)))))
+       (construct-formatting-info stx)))))
