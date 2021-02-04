@@ -6,10 +6,27 @@
 1. Figure out how to make combinators customizable for the user of the formatting tool,
    types of customization configured by the macro authors.
 
-1a. Customizable combinators should provide some information for forms that don't have
-    a pretty printing specification (for example, DrRacket's default indentation rules)
+    1. Customizable combinators should provide some information for forms that don't have
+       a pretty printing specification (for example, DrRacket's default indentation rules)
+
+2. Abstract over the naming pattern:
+
+    ```racket
+    (syntax-parse stx
+      #:literals (else)
+      [(form (expr ...+) ...)
+       (define-values (exprss/name namess)
+         (for/lists (exprss/name namess)
+                    ([exprs (in-syntax #'((expr ...) ...))])
+           (for/lists (exprs/name names)
+                      ([expr (in-syntax exprs)])
+             (attach-name expr "my-cond.clause"))))
+    ```
 
 ### TODOS:
+
+- Add a test case for pretty-printing the whole file.
+    * What (top-level?) API should provided?
 
 - Think: racket-format currently includes syntax information from `'disappeared-use`.
   Do we want to ignore `'disappeared-use` and have an optional opt-in instruction in the
