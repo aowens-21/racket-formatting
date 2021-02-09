@@ -35,7 +35,24 @@
       including identifiers that will disappear (e.g. `else` in `cond`).
       But perhaps manually producing that is inconvenient.
 - Also come up with a combinator that decides whether or not to break lines between elements
+### Possible Future Works
 - The comment information is dropped entirely
+- Handle reading-time indentation, e.g. `@`-expressions. Currently DrRacket's indentation
+  engine does not work in the following case.
+
+    ```racket
+    (match result
+      [('check-satisfied (list actual))
+       @list{
+         Test did not pass:
+           @'(embed-pretty-print-no-eol/image actual)
+           did not satisfy the check
+             @'(embed-pretty-write-code (third complete-test))
+           in the test case
+             @'(embed-pretty-write-code complete-test)
+
+       }])])
+    ```
 
 ## Current Formatting Language
 
