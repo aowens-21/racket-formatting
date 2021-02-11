@@ -9,7 +9,12 @@
 ### What are our goals (for now)?
 
 1 Add a test case for formatting the whole file.
-    * What (top-level?) API should provided?
+    * What (top-level?) API should provided? -- `format-file : source-file -> dest-string`
+    * Traverse fully expanded program to build a map from
+      source locations to format instructions
+    * Construct the formatted file by copying the source code.
+      If encountered a source location that has formatting instruction,
+      switch to print-formatted mode.
 
 2. Customizable combinators should provide some information for forms that don't have
    a pretty printing specification (for example, DrRacket's default indentation rules)

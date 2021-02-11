@@ -325,3 +325,36 @@
       (port-count-lines! (current-output-port))
       (print-formatted
        (construct-formatting-info stx)))))
+
+
+;; format-file : source-file config-file dest-file
+;;=>
+;; format-file : source-file -> dest-string
+
+(require syntax/modread
+         racket/pretty)
+
+(define-namespace-anchor here-namespace-anchor)
+
+(define (format-file filename)
+  (define stx
+    (call-with-input-file
+     filename
+     (λ (in)
+       (port-count-lines! in)
+       (with-module-reading-parameterization
+         (λ () (read-syntax filename in))))))
+
+  (define ns (make-empty-namespace))
+  (parameterize ([current-namespace ns])
+    (namespace-attach-module (namespace-anchor->namespace
+                              here-namespace-anchor)
+                             ''#%builtin)
+    (namespace-require ''#%kernel))
+
+  (write-string
+   (parameterize ([current-namespace ns])
+     (println
+      (expand stx))
+     "" #;(racket-format stx)))
+  (void))
