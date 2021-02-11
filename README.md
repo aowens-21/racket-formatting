@@ -8,7 +8,7 @@
 
 ### What are our goals (for now)?
 
-1 Add a test case for formatting the whole file.
+1. Add a test case for formatting the whole file.
     * What (top-level?) API should provided? -- `format-file : source-file -> dest-string`
     * Traverse fully expanded program to build a map from
       source locations to format instructions
