@@ -1,4 +1,8 @@
-on: [push, pull_request]
+on:
+  push:
+    paths:
+    - '.github/workflows/**'
+    - 'custom-syntax-format/**'
 name: CI
 jobs:
   build:
