@@ -159,6 +159,40 @@ An `element` is one of:
    )
 ```
 
+two possible formatting instructions for `let`
+
+1. less tree-y
+
+    ```racket
+    #($$ #(<> "(" "let" " " bindings)
+         #(nest 2 #(<> body ")")))
+    ```
+
+    result:
+
+    ```
+    |"(" "let" " (" |"[" a 10 ... "]"
+                    |"[" ..... "]" ")"
+
+    |__ body.... ")"
+    ```
+2. more tree-y
+
+    ```racket
+    #(<> "("
+         #($$ #(<> "let" " " binding)
+              #(nest 1 body))
+         ")")
+    ```
+
+    result:
+
+    ```
+    "("|"let" " (" |"[" a 10 ... "]"
+                   |"[" ..... "]" ")"
+       |_body....         ")"
+    ```
+
 cond drops syntax properties on each clauses
 
 ```racket

@@ -16,8 +16,6 @@
             name))
   )
 
-;; FIXME handle `else` and properly format it because
-;; it is moved into the 'disappeared-use property
 (define-syntax (my-cond stx)
   (syntax-parse stx
     #:literals (else)
@@ -54,49 +52,6 @@
                   ,(cons 'force-line-break
                         `#($$ ,(symbol->string (syntax-e #'form)) #(nest 1 ,body))))
                 ")"))))]))
-
-#|
-(pretty-write
- #(let ([body
-         #($$ #(<> "["
-                   #(options
-                     'cond-body-line-break-formatting-rules
-                     (cons 'default
-                           #(preserve-linebreak #(source) #(source)))
-                     (cons 'same-line
-                           #(<> #(source) " " #(source)))
-                     (cons 'force-line-break
-                           #($$ #(source)
-                                #(source))))
-                   "]")
-              ...)
-         ])
-    #(<>
-      "("
-      #(options
-        'cond-first-clause-formatting-rules
-        (cons 'the-first-clause-follows-the-cond
-              #(<> "my-cond" " " body))
-        (cons 'the-first-clause-in-a-new-line
-              #($$ "my-cond" #(nest 1 body)))
-      ")"))
- ))
-|#
-
-
-#|
-    |"(" "let" " (" |"[" a 10 ... "]"
-                    |"[" ..... "]" ")"
-
-    |__ body.... ")"
-|#
-
-
-#|
-    "("|"let" " (" |"[" a 10 ... "]"
-                   |"[" ..... "]" ")"
-       |_body....         ")"
-|#
 
 (define-syntax (my-let stx)
   (syntax-parse stx
@@ -350,7 +305,7 @@
     (namespace-attach-module (namespace-anchor->namespace
                               here-namespace-anchor)
                              ''#%builtin)
-    (namespace-require ''#%kernel))
+    (namespace-require '(only '#%kernel module module)))
 
   (write-string
    (parameterize ([current-namespace ns])
