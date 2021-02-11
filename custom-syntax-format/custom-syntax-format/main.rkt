@@ -36,8 +36,8 @@
                              (define names-with-spaces (apply append (for/list ([name (in-list names)])
                                                                       (list " " name))))
                              `#(<> "[" #(options
-                                         'cond-body-line-break-formatting-rules
-                                         ,(cons 'default
+                                         cond-body-line-break
+                                         ,(cons 'preserve
                                                `#(preserve-linebreak ,@names))
                                          ,(cons 'same-line
                                                `#(<> ,@(if (pair? names-with-spaces)
@@ -48,10 +48,10 @@
                                    "]")))])
           `#(<> "("
                 #(options
-                  'cond-first-clause-formatting-rules
-                  ,(cons 'the-first-clause-follows-the-cond
+                  cond-first-clause
+                  ,(cons 'same-line
                         `#(<> ,(symbol->string (syntax-e #'form)) " " ,body))
-                  ,(cons 'the-first-clause-in-a-new-line
+                  ,(cons 'force-line-break
                         `#($$ ,(symbol->string (syntax-e #'form)) #(nest 1 ,body))))
                 ")"))))]))
 

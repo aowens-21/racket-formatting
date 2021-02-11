@@ -1,15 +1,20 @@
 # Racket Formatting
 
 ## Memo
+### Terminology
+
+- the _programmers_ : the person implementing macros
+- the _user(s)_ : the person using the macros and the formatting tool
+
 ### What are our goals (for now)?
 
-1. Figure out how to make combinators customizable for the user of the formatting tool,
-   types of customization configured by the macro authors.
+1 Add a test case for formatting the whole file.
+    * What (top-level?) API should provided?
 
-    1. Customizable combinators should provide some information for forms that don't have
-       a pretty printing specification (for example, DrRacket's default indentation rules)
+2. Customizable combinators should provide some information for forms that don't have
+   a pretty printing specification (for example, DrRacket's default indentation rules)
 
-2. Abstract over the naming pattern:
+3. Abstract over the naming pattern:
 
     ```racket
     (syntax-parse stx
@@ -25,9 +30,6 @@
 
 ### TODOS:
 
-- Add a test case for pretty-printing the whole file.
-    * What (top-level?) API should provided?
-
 - Think: racket-format currently includes syntax information from `'disappeared-use`.
   Do we want to ignore `'disappeared-use` and have an optional opt-in instruction in the
   formatting language instead?
@@ -35,7 +37,9 @@
       including identifiers that will disappear (e.g. `else` in `cond`).
       But perhaps manually producing that is inconvenient.
 - Also come up with a combinator that decides whether or not to break lines between elements
+
 ### Possible Future Works
+
 - The comment information is dropped entirely
 - Handle reading-time indentation, e.g. `@`-expressions. Currently DrRacket's indentation
   engine does not work in the following case.
@@ -55,6 +59,9 @@
     ```
 
 ## Current Formatting Language
+
+Formatting programs are written using the `element` grammar.
+An `element` is one of:
 
 - `string`
 
@@ -84,7 +91,68 @@
 
     increase the nesting depth by int columns
 
+- `#(options name-symbol (option-symbol . element) ...)`
+
+    provide different `name-symbol` formatting options `option-symbol ...`.
+    each `element` is a formatting program.
+
+### `my-cond` Layout Options
+
+`my-cond` layout for the clauses:
+
+- layout 1
+
+    ```racket
+    (cond <clause-1>
+          <clause-2>
+          ...)
+    ```
+
+- layout 2
+
+    ```racket
+    (cond
+      <clause-1>
+      <clause-2>
+      ...)
+    ```
+
+`my-cond` layout for each of the clauses:
+
+- layout 1 (default): preserve existing line breaks
+
+- layout 2: Qs and As are always in the same line,
+  separated by a space
+
+    - layout 2.1: have Qs and As in the same line iff
+      the clause contains exactly one answer
+
+- layout 3: Qs and As are always in individual lines
+
 ## Misc old comments
+
+- making the formatting a general-purpose programming language?
+
+```
+'(begin
+   (define (provide-options-for-cond-like-indent
+            proc)
+     #(<>
+       "("
+       #(options
+         'the-first-clause-follows-the-cond
+         #(<> "my-cond" " " body)
+         'the-first-clause-in-a-new-line
+         #($$ "my-cond" #(nest 1 body)))
+       ")"))
+
+   #((require ...formatting-library...)
+     (provide-options-for-cond-like-indent
+      "my-cond"
+      #($$ <clause> ...))
+     )
+   )
+```
 
 cond drops syntax properties on each clauses
 
@@ -167,9 +235,13 @@ DONE - Shift the indentation of the `#(source ...)` block
        |  ghijk
       lmnop
     ```
+
 ## Finished Tasks
 
 1. Check if our combinator "language" can express my-cond and my-let
     formatting rules
 
 2. Define what each combinator means
+
+3. Figure out how to make combinators customizable for the user of the formatting tool,
+   types of customization configured by the macro authors.

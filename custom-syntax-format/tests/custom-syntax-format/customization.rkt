@@ -1,103 +1,95 @@
 #lang at-exp racket/base
 
-(require racket/pretty
-         rackunit
+(require rackunit
          custom-syntax-format
          "example-forms.rkt")
 
 (provide (all-defined-out))
 
-#|
-1. the programmers: the person implementing macros
-2. the user(s): the person using the macros and the formatting tool
-|#
+(define my-cond-expected.1/all-same-line
+  @string-append{
+ (my-cond [#f "false"]
+          [(< 10 5) "a"]
+          [#t "b"]
+          [else #f])
+ })
 
-(pretty-write
- (construct-formatting-info
-  my-cond-stx.4))
+(module+ test
+  (check-equal?
+   (parameterize ([racket-format-config
+                   (hash 'cond-first-clause 'same-line
+                         'cond-body-line-break 'same-line)])
+     (racket-format my-cond-stx.1))
+   my-cond-expected.1/all-same-line))
 
-#|
-my-cond layout for the clauses:
+(define my-cond-expected.3/all-force-line-break
+  @string-append{
+ (my-cond
+   [#t
+    "ans1"
+    "answer2"
+    'answer3
+    (hash 'answer4 #t)]
+   [else
+    #t])
+ })
 
-- layout 1
+(module+ test
+  (check-equal?
+   (parameterize ([racket-format-config
+                   (hash 'cond-first-clause 'force-line-break
+                         'cond-body-line-break 'force-line-break)])
+     (racket-format my-cond-stx.3))
+   my-cond-expected.3/all-force-line-break))
 
-    ```racket
-    (cond <clause-1>
-          <clause-2>
-          ...)
-    ```
+(define my-cond-expected.4/first-clause-force-line-break
+  @string-append{
+ (my-cond
+   [(+
+     5
+     3) 'ok]
+   [else #t])
+ })
 
-- layout 2
+(define my-cond-expected.4/body-force-line-break
+  @string-append{
+ (my-cond [(+
+            5
+            3)
+           'ok]
+          [else
+           #t])
+ })
 
-    ```racket
-    (cond
-      <clause-1>
-      <clause-2>
-      ...)
-    ```
-|#
+(define my-cond-expected.4/all-force-line-break
+  @string-append{
+ (my-cond
+   [(+
+     5
+     3)
+    'ok]
+   [else
+    #t])
+ })
 
-#|
-my-cond layout for each of the clauses:
+(module+ test
+  (check-equal?
+   (parameterize ([racket-format-config
+                   (hash 'cond-first-clause 'force-line-break
+                         'cond-body-line-break 'preserve)])
+     (racket-format my-cond-stx.4))
+   my-cond-expected.4/first-clause-force-line-break)
 
-- layout 1 (default): preserve existing line breaks
+  (check-equal?
+   (parameterize ([racket-format-config
+                   (hash 'cond-first-clause 'same-line
+                         'cond-body-line-break 'force-line-break)])
+     (racket-format my-cond-stx.4))
+   my-cond-expected.4/body-force-line-break)
 
-- layout 2: Qs and As are always in the same line,
-  separated by a space
-
-    - layout 2.1: have Qs and As in the same line iff
-      the clause contains exactly one answer
-
-- layout 3: Qs and As are always in individual lines
-|#
-
-(pretty-write
- #(let ([body
-         #($$ #(<> "["
-                   #(options
-                     'cond-body-line-break-formatting-rules
-                     (cons 'default
-                           #(preserve-linebreak #(source) #(source)))
-                     (cons 'same-line
-                           #(<> #(source) " " #(source)))
-                     (cons 'force-line-break
-                           #($$ #(source)
-                                #(source))))
-                   "]")
-              ...)
-         ])
-    #(<>
-      "("
-      #(options
-        'cond-first-clause-formatting-rules
-        (cons 'the-first-clause-follows-the-cond
-              #(<> "my-cond" " " body))
-        (cons 'the-first-clause-in-a-new-line
-              #($$ "my-cond" #(nest 1 body)))
-      ")"))
- ))
-
-#|
-if going far towards making the formatting a general-purpose
-programming language
-|#
-
-(pretty-write
- '(begin
-    (define (provide-options-for-cond-like-indent
-             proc)
-      #(<>
-        "("
-        #(options
-          'the-first-clause-follows-the-cond
-          #(<> "my-cond" " " body)
-          'the-first-clause-in-a-new-line
-          #($$ "my-cond" #(nest 1 body)))
-        ")"))
-
-    #((require ...formatting-library...)
-      (provide-options-for-cond-like-indent
-       "my-cond"
-       #($$ <clause> ...))
-      )
-    ))
+  (check-equal?
+   (parameterize ([racket-format-config
+                   (hash 'cond-first-clause 'force-line-break
+                         'cond-body-line-break 'force-line-break)])
+     (racket-format my-cond-stx.4))
+   my-cond-expected.4/all-force-line-break))
