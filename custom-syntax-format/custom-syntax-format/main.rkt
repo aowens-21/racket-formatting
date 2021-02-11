@@ -32,14 +32,57 @@
        (syntax-property
         (syntax/loc stx (cond [expr ...] ...))
         'syncheck:format
-        `#(<> "("
-              ,(symbol->string (syntax-e #'form))
-              ;; TODO: Think about a construct for spacing/indenting between elements,
-              ;; instead of this explicit space
-              " "
-              #($$ ,@(for/list ([names (in-list namess)])
-                       `#(<> "[" #(preserve-linebreak ,@names) "]")))
-              ")")))]))
+        (let ([body `#($$ ,@(for/list ([names (in-list namess)])
+                             (define names-with-spaces (apply append (for/list ([name (in-list names)])
+                                                                      (list " " name))))
+                             `#(<> "[" #(options
+                                         'cond-body-line-break-formatting-rules
+                                         ,(cons 'default
+                                               `#(preserve-linebreak ,@names))
+                                         ,(cons 'same-line
+                                               `#(<> ,@(if (pair? names-with-spaces)
+                                                          (cdr names-with-spaces)
+                                                          names-with-spaces)))
+                                         ,(cons 'force-line-break
+                                               `#($$ ,@names)))
+                                   "]")))])
+          `#(<> "("
+                #(options
+                  'cond-first-clause-formatting-rules
+                  ,(cons 'the-first-clause-follows-the-cond
+                        `#(<> ,(symbol->string (syntax-e #'form)) " " ,body))
+                  ,(cons 'the-first-clause-in-a-new-line
+                        `#($$ ,(symbol->string (syntax-e #'form)) #(nest 1 ,body))))
+                ")"))))]))
+
+#|
+(pretty-write
+ #(let ([body
+         #($$ #(<> "["
+                   #(options
+                     'cond-body-line-break-formatting-rules
+                     (cons 'default
+                           #(preserve-linebreak #(source) #(source)))
+                     (cons 'same-line
+                           #(<> #(source) " " #(source)))
+                     (cons 'force-line-break
+                           #($$ #(source)
+                                #(source))))
+                   "]")
+              ...)
+         ])
+    #(<>
+      "("
+      #(options
+        'cond-first-clause-formatting-rules
+        (cons 'the-first-clause-follows-the-cond
+              #(<> "my-cond" " " body))
+        (cons 'the-first-clause-in-a-new-line
+              #($$ "my-cond" #(nest 1 body)))
+      ")"))
+ ))
+|#
+
 
 #|
     |"(" "let" " (" |"[" a 10 ... "]"
@@ -122,7 +165,7 @@
         [else (void)])))
   table)
 
-(define (construct-pretty-print-info table pp-info)
+(define (recursively-construct-formatting-info table pp-info)
   (match pp-info
     [(? string? s) s]
     [(? symbol? name)
@@ -132,26 +175,30 @@
        [(not stx/#f)
         (format "MISSING:~a" name)]
        [else
-        (construct-pretty-print-info-from-syntax
+        (construct-formatting-info-from-syntax
          table
          stx/#f)])]
     [`#(<> ,elements ...)
      `#(<>
         ,@(for/list ([element (in-list elements)])
-            (construct-pretty-print-info table element)))]
+            (recursively-construct-formatting-info table element)))]
     [`#($$ ,elements ...)
      `#($$
         ,@(for/list ([element (in-list elements)])
-            (construct-pretty-print-info table element)))]
+            (recursively-construct-formatting-info table element)))]
     [`#(preserve-linebreak ,elements ...)
      `#(preserve-linebreak
         ,@(for/list ([element (in-list elements)])
-            (construct-pretty-print-info table element)))]
+            (recursively-construct-formatting-info table element)))]
     [`#(nest ,depth ,element)
      `#(nest ,depth
-             ,(construct-pretty-print-info table element))]))
+             ,(recursively-construct-formatting-info table element))]
+    [`#(options ,name ,options ...)
+     `#(options ,name ,@(for/list ([option (in-list options)])
+                          (cons (car option)
+                                (recursively-construct-formatting-info table (cdr option)))))]))
 
-(define (construct-pretty-print-info-from-syntax table stx)
+(define (construct-formatting-info-from-syntax table stx)
   (define pp-info
     (syntax-property stx 'syncheck:format))
   (cond
@@ -162,13 +209,13 @@
                ,(syntax-position stx)
                ,(syntax-span stx))]
     [else
-     (construct-pretty-print-info table pp-info)]))
+     (recursively-construct-formatting-info table pp-info)]))
 
-(define pretty-print-indentation (make-parameter 0))
+(define format-indentation (make-parameter 0))
 
-(define (pretty-print-not-really-newline)
+(define (print-formatted-newline)
   (newline)
-  (for ([i (in-range (pretty-print-indentation))])
+  (for ([i (in-range (format-indentation))])
     (write-char #\space)))
 
 ;; FIXME handle spaces
@@ -180,13 +227,16 @@
       (string-length
        (list-ref (cdr (regexp-match #rx"^([ \\t]*)" a-line))
                  0)))
-    (parameterize ([pretty-print-indentation
+    (parameterize ([format-indentation
                     (max 0 (+ shift-amount space-count-at-start))])
       (when (> idx 0)
-        (pretty-print-not-really-newline))
+        (print-formatted-newline))
       (write-string (substring a-line space-count-at-start)))))
 
-(define (pretty-print-not-really pp-info)
+;; maps some config options
+(define racket-format-config (make-parameter (hash)))
+
+(define (print-formatted pp-info)
   (match pp-info
     [(? string? s)
      (write-string s)]
@@ -199,17 +249,17 @@
                     (sub1 pos)
                     (sub1 (+ pos span)))
          ;; column locations are numbered from 0.
-         (- (pretty-print-indentation) col))))]
+         (- (format-indentation) col))))]
     [`#(<> ,elements ...)
      (for ([(element idx) (in-indexed elements)])
-       (pretty-print-not-really element))]
+       (print-formatted element))]
     [`#($$ ,element0 ,elements ...)
      (indent-at-current-col
       (lambda ()
-        (pretty-print-not-really element0)
+        (print-formatted element0)
         (for ([(element idx) (in-indexed elements)])
-          (pretty-print-not-really-newline)
-          (pretty-print-not-really element))))]
+          (print-formatted-newline)
+          (print-formatted element))))]
     [`#($$)
      (void)]
     [`#(preserve-linebreak
@@ -218,35 +268,42 @@
      (indent-at-current-col
       (lambda ()
         (define previous-line-no (get-current-line-number))
-        (pretty-print-not-really element0)
+        (print-formatted element0)
         (for/fold ([previous-line-span (- (get-current-line-number) previous-line-no)])
                   ([previous-line-number (in-list (cons line0 line))]
                    [current-line-number (in-list line)]
                    [element (in-list elements)])
           (cond
             [(> current-line-number (+ previous-line-number previous-line-span))
-             (pretty-print-not-really-newline)]
+             (print-formatted-newline)]
             [else
              (write-char #\space)])
           (define current-line-no (get-current-line-number))
-          (pretty-print-not-really element)
+          (print-formatted element)
           (- (get-current-line-number) current-line-no))))]
     [`#(preserve-linebreak ,elements ...)
      (for ([(element idx) (in-indexed elements)])
        (when (> idx 0)
          (write-char #\space))
-       (pretty-print-not-really element))]
+       (print-formatted element))]
     [`#(nest ,(? exact-integer? depth) ,element)
      (for ([i (in-range depth)])
        (write-char #\space))
      (indent-at-current-col
       (lambda ()
-        (pretty-print-not-really element)))]))
+        (print-formatted element)))]
+    [`#(options ,name ,options ...)
+     (define chosen-option (hash-ref (racket-format-config)
+                                     name
+                                     (lambda () (car (list-ref options 0)))))
+     (define chosen-format (cdr (or (assoc chosen-option options)
+                                    (list-ref options 0))))
+     (print-formatted chosen-format)]))
 
 (define (indent-at-current-col proc)
   (define-values (line col pos)
     (port-next-location (current-output-port)))
-  (parameterize ((pretty-print-indentation col))
+  (parameterize ((format-indentation col))
     (proc)))
 
 (define (get-current-line-number)
@@ -260,11 +317,11 @@
     (extract-name-syntax-maps
      expanded-stx
      #:check-disappeared-use? #t))
-  (construct-pretty-print-info-from-syntax name-stx-map expanded-stx))
+  (construct-formatting-info-from-syntax name-stx-map expanded-stx))
 
 (define (racket-format stx)
   (with-output-to-string
     (λ ()
       (port-count-lines! (current-output-port))
-      (pretty-print-not-really
+      (print-formatted
        (construct-formatting-info stx)))))

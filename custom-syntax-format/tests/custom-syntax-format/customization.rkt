@@ -37,18 +37,6 @@ my-cond layout for the clauses:
     ```
 |#
 
-(pretty-write
- #(let ([body #($$ ...)])
-    #(<>
-      "("
-      #(options
-        'the-first-clause-follows-the-cond
-        #(<> "my-cond" " " body)
-        'the-first-clause-in-a-new-line
-        #($$ "my-cond" #(nest 1 body)))
-      ")"))
- )
-
 #|
 my-cond layout for each of the clauses:
 
@@ -67,25 +55,27 @@ my-cond layout for each of the clauses:
  #(let ([body
          #($$ #(<> "["
                    #(options
-                     'default
-                     #(preserve-linebreak #(source) #(source))
-                     'same-line
-                     #(<> #(source) " " #(source))
-                     'force-line-break
-                     #($$ #(source)
-                          #(source)))
+                     'cond-body-line-break-formatting-rules
+                     (cons 'default
+                           #(preserve-linebreak #(source) #(source)))
+                     (cons 'same-line
+                           #(<> #(source) " " #(source)))
+                     (cons 'force-line-break
+                           #($$ #(source)
+                                #(source))))
                    "]")
               ...)
          ])
     #(<>
       "("
       #(options
-        'the-first-clause-follows-the-cond
-        #(<> "my-cond" " " body)
-        'the-first-clause-in-a-new-line
-        #($$ "my-cond" #(nest 1 body)))
+        'cond-first-clause-formatting-rules
+        (cons 'the-first-clause-follows-the-cond
+              #(<> "my-cond" " " body))
+        (cons 'the-first-clause-in-a-new-line
+              #($$ "my-cond" #(nest 1 body)))
       ")"))
- )
+ ))
 
 #|
 if going far towards making the formatting a general-purpose
