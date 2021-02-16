@@ -289,7 +289,7 @@
 (require syntax/modread
          racket/pretty)
 
-(define-namespace-anchor here-namespace-anchor)
+(define-namespace-anchor here-namespace-anchor) 
 
 (define (format-file filename)
   (define stx
@@ -300,6 +300,7 @@
        (with-module-reading-parameterization
          (λ () (read-syntax filename in))))))
 
+
   (define ns (make-empty-namespace))
   (parameterize ([current-namespace ns])
     (namespace-attach-module (namespace-anchor->namespace
@@ -307,9 +308,40 @@
                              ''#%builtin)
     (namespace-require '(only '#%kernel module module)))
 
-  (write-string
-   (parameterize ([current-namespace ns])
-     (println
-      (expand stx))
-     "" #;(racket-format stx)))
+  (define expanded-stx
+    (parameterize ([current-namespace ns])
+      (expand stx)))
+
+  (define loc-to-format-map (build-loc-to-format-map expanded-stx))
+
+  
   (void))
+
+(define (build-loc-to-format-map stx)
+  (define loc-to-format-map (make-hash))
+  (let loop ([stx stx])
+    (cond [(pair? stx)
+           (loop (car stx))
+           (loop (cdr stx))]
+          [(syntax? stx)
+           (define syncheck-format (syntax-property stx 'syncheck:format))
+           (define source (syntax-source stx))
+           (define line (syntax-line stx))
+           (define col (syntax-column stx))
+           (define pos (syntax-position stx))
+           (define span (syntax-span stx))
+           (when (and syncheck-format
+                      source
+                      line
+                      col
+                      pos
+                      span)
+             (hash-set! loc-to-format-map
+                        (make-srcloc source
+                                     line
+                                     col
+                                     pos
+                                     span)
+                        syncheck-format))
+           (loop (syntax-e stx))]))
+  loc-to-format-map)
