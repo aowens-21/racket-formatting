@@ -89,35 +89,69 @@
 (define (extract-name-syntax-maps stx
                                   #:check-disappeared-use? [check-disappeared-use? #f])
   (define table (make-hash))
-  (define (do-traverse stx)
-    (define name (syntax-property stx 'syncheck:format:name))
-    (when name
-      (hash-set! table name stx))
-    (define datum (syntax-e stx))
+  (define (do-traverse datum)
     (cond
-      [(list? datum)
-       (for ([substx (in-list datum)])
-         (do-traverse substx))]
       [(vector? datum)
        (for ([substx (in-vector datum)])
          (do-traverse substx))]
       [(pair? datum)
        (do-traverse (car datum))
        (do-traverse (cdr datum))]
+      [(syntax? datum)
+       (define name (syntax-property datum 'syncheck:format:name))
+       (when name
+         (hash-set! table name datum))
+       (when check-disappeared-use?
+         (define uses (syntax-property datum 'disappeared-use))
+         (let loop ([use uses])
+           (cond
+             [(syntax? use)
+              (do-traverse use)]
+             [(pair? use)
+              (loop (car use))
+              (loop (cdr use))]
+             [else (void)])))
+       (do-traverse (syntax-e datum))]
       ;; TODO recursively traverse all compound data
       [else (void)]))
 
   (do-traverse stx)
-  (when check-disappeared-use?
-    (define uses (syntax-property stx 'disappeared-use))
-    (let loop ([use uses])
-      (cond
-        [(syntax? use)
-         (do-traverse use)]
-        [(pair? use)
-         (loop (car use))
-         (loop (cdr use))]
-        [else (void)])))
+  table)
+
+(define (extract-name-location-maps stx
+                                  #:check-disappeared-use? [check-disappeared-use? #f])
+  (define table (make-hash))
+  (define (do-traverse datum)
+    (cond
+      [(vector? datum)
+       (for ([substx (in-vector datum)])
+         (do-traverse substx))]
+      [(pair? datum)
+       (do-traverse (car datum))
+       (do-traverse (cdr datum))]
+      [(syntax? datum)
+       (define name (syntax-property datum 'syncheck:format:name))
+       (when name
+         (hash-set! table name (make-srcloc (syntax-source datum)
+                                            (syntax-line datum)
+                                            (syntax-column datum)
+                                            (syntax-position datum)
+                                            (syntax-span datum))))
+       (when check-disappeared-use?
+         (define uses (syntax-property datum 'disappeared-use))
+         (let loop ([use uses])
+           (cond
+             [(syntax? use)
+              (do-traverse use)]
+             [(pair? use)
+              (loop (car use))
+              (loop (cdr use))]
+             [else (void)])))
+       (do-traverse (syntax-e datum))]
+      ;; TODO recursively traverse all compound data
+      [else (void)]))
+
+  (do-traverse stx)
   table)
 
 (define (recursively-construct-formatting-info table pp-info)
@@ -165,6 +199,25 @@
                ,(syntax-span stx))]
     [else
      (recursively-construct-formatting-info table pp-info)]))
+
+(define (construct-formatting-info-from-location name-to-location-map
+                                                 loc-to-format-map
+                                                 loc)
+  (cond
+    [(not (hash-has-key? loc-to-format-map loc))
+     `#(source ,(srcloc-source loc)
+               ,(srcloc-line loc)
+               ,(srcloc-column loc)
+               ,(srcloc-position loc)
+               ,(srcloc-span loc))]
+    [else
+     ;; TODO FIXME
+     (hash-ref loc-to-format-map loc)
+     #;
+     (recursively-construct-formatting-info-from-location
+      name-to-location-map
+      loc-to-format-map
+      (hash-ref loc-to-format-map loc))]))
 
 (define format-indentation (make-parameter 0))
 
@@ -312,9 +365,20 @@
     (parameterize ([current-namespace ns])
       (expand stx)))
 
-  (define loc-to-format-map (build-loc-to-format-map expanded-stx))
+  (define names-to-loc-map
+    (extract-name-location-maps expanded-stx
+                              #:check-disappeared-use? #t))
+  (define loc-to-format-with-names-map (build-loc-to-format-map expanded-stx))
+  (define loc-to-format-map
+    (for/hash ([loc (in-hash-keys loc-to-format-with-names-map)])
+      (values
+       loc
+       (construct-formatting-info-from-location
+        names-to-loc-map
+        loc-to-format-with-names-map
+        loc))))
 
-  
+  (pretty-write loc-to-format-map)
   (void))
 
 (define (build-loc-to-format-map stx)
