@@ -15,6 +15,20 @@
     * Construct the formatted file by copying the source code.
       If encountered a source location that has formatting instruction,
       switch to print-formatted mode.
+    * Handle nested format instructions. Currently, `print-formatted` interpret `#(source srcloc)` by copying the content at `srcloc` to the output. However, source codes at `srcloc` can also contain formatting instructions. An example:
+        ```
+        (my-cond (#t
+                  (string-append "hello "
+                                 (my-cond (else "world")))) (else 'not-here))
+        ```
+        Current output:
+        ```
+        (writeln
+         (my-cond [#t
+                   (string-append "hello "
+                                  (my-cond (else "world")))]
+                  [else 'not-here]))
+        ```
 
 2. Customizable combinators should provide some information for forms that don't have
    a pretty printing specification (for example, DrRacket's default indentation rules)
