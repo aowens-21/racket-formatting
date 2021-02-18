@@ -3,120 +3,11 @@
 (require racket/match
          racket/file
          racket/port
-         (for-syntax racket/base
-                     racket/sequence
-                     syntax/parse))
+         "syntax.rkt"
+         "example-forms.rkt")
 
-(provide (all-defined-out))
-
-(begin-for-syntax
-  (define (attach-name stx [base "g"])
-    (define name (gensym base))
-    (values (syntax-property stx 'syncheck:format:name name)
-            name))
-  )
-
-(define-syntax (my-cond stx)
-  (syntax-parse stx
-    #:literals (else)
-    [(form (expr ...+) ...)
-     (define-values (exprss/name namess)
-       (for/lists (exprss/name namess)
-                  ([exprs (in-syntax #'((expr ...) ...))])
-         (for/lists (exprs/name names)
-                    ([expr (in-syntax exprs)])
-           (attach-name expr "my-cond.clause"))))
-     (with-syntax ([((expr ...) ...) exprss/name])
-       (syntax-property
-        (syntax/loc stx (cond [expr ...] ...))
-        'syncheck:format
-        (let ([body `#($$ ,@(for/list ([names (in-list namess)])
-                             (define names-with-spaces (apply append (for/list ([name (in-list names)])
-                                                                      (list " " name))))
-                             `#(<> "[" #(options
-                                         cond-body-line-break
-                                         ,(cons 'preserve
-                                               `#(preserve-linebreak ,@names))
-                                         ,(cons 'same-line
-                                               `#(<> ,@(if (pair? names-with-spaces)
-                                                          (cdr names-with-spaces)
-                                                          names-with-spaces)))
-                                         ,(cons 'force-line-break
-                                               `#($$ ,@names)))
-                                   "]")))])
-          `#(<> "("
-                #(options
-                  cond-first-clause
-                  ,(cons 'same-line
-                        `#(<> ,(symbol->string (syntax-e #'form)) " " ,body))
-                  ,(cons 'force-line-break
-                        `#($$ ,(symbol->string (syntax-e #'form)) #(nest 1 ,body))))
-                ")"))))]))
-
-(define-syntax (my-let stx)
-  (syntax-parse stx
-    [(form ([lhs rhs] ...) body-expr ...+)
-     (define-values (exprss/name namess)
-       (for/lists (exprss/name namess)
-                  ([exprs (in-syntax #'((lhs rhs) ...))])
-         (for/lists (exprs/name names)
-                    ([expr (in-syntax exprs)])
-           (attach-name expr "my-let.clause"))))
-     (define-values (body-exprss/name body-namess)
-       (for/lists (body-exprss/name body-namess)
-                  ([body (in-syntax #'(body-expr ...))])
-         (attach-name body "my-let-body.clause")))
-     (with-syntax ([((lhs rhs) ...) exprss/name]
-                   [(body-expr ...) body-exprss/name])
-       (syntax-property
-        (syntax/loc stx (let ([lhs rhs] ...) body-expr ...))
-        'syncheck:format
-        `#(<> "("
-              #($$ #(<> ,(symbol->string (syntax-e #'form))
-                        " ("
-                        #($$ ,@(for/list ([names (in-list namess)])
-                                 `#(<> "["
-                                       ,(list-ref names 0)
-                                       " "
-                                       ,(list-ref names 1)
-                                       "]")))
-                        ")")
-                   #(nest 1
-                          #($$ ,@(for/list ([body-name (in-list body-namess)])
-                                   body-name))))
-              ")")))]))
-     
-(define (extract-name-syntax-maps stx
-                                  #:check-disappeared-use? [check-disappeared-use? #f])
-  (define table (make-hash))
-  (define (do-traverse datum)
-    (cond
-      [(vector? datum)
-       (for ([substx (in-vector datum)])
-         (do-traverse substx))]
-      [(pair? datum)
-       (do-traverse (car datum))
-       (do-traverse (cdr datum))]
-      [(syntax? datum)
-       (define name (syntax-property datum 'syncheck:format:name))
-       (when name
-         (hash-set! table name datum))
-       (when check-disappeared-use?
-         (define uses (syntax-property datum 'disappeared-use))
-         (let loop ([use uses])
-           (cond
-             [(syntax? use)
-              (do-traverse use)]
-             [(pair? use)
-              (loop (car use))
-              (loop (cdr use))]
-             [else (void)])))
-       (do-traverse (syntax-e datum))]
-      ;; TODO recursively traverse all compound data
-      [else (void)]))
-
-  (do-traverse stx)
-  table)
+(provide (all-defined-out)
+         (all-from-out "example-forms.rkt"))
 
 (define (extract-name-location-maps stx
                                   #:check-disappeared-use? [check-disappeared-use? #f])
@@ -154,51 +45,6 @@
   (do-traverse stx)
   table)
 
-(define (recursively-construct-formatting-info table pp-info)
-  (match pp-info
-    [(? string? s) s]
-    [(? symbol? name)
-     (define stx/#f
-       (hash-ref table name (λ () #f)))
-     (cond
-       [(not stx/#f)
-        (format "MISSING:~a" name)]
-       [else
-        (construct-formatting-info-from-syntax
-         table
-         stx/#f)])]
-    [`#(<> ,elements ...)
-     `#(<>
-        ,@(for/list ([element (in-list elements)])
-            (recursively-construct-formatting-info table element)))]
-    [`#($$ ,elements ...)
-     `#($$
-        ,@(for/list ([element (in-list elements)])
-            (recursively-construct-formatting-info table element)))]
-    [`#(preserve-linebreak ,elements ...)
-     `#(preserve-linebreak
-        ,@(for/list ([element (in-list elements)])
-            (recursively-construct-formatting-info table element)))]
-    [`#(nest ,depth ,element)
-     `#(nest ,depth
-             ,(recursively-construct-formatting-info table element))]
-    [`#(options ,name ,options ...)
-     `#(options ,name ,@(for/list ([option (in-list options)])
-                          (cons (car option)
-                                (recursively-construct-formatting-info table (cdr option)))))]))
-
-(define (construct-formatting-info-from-syntax table stx)
-  (define pp-info
-    (syntax-property stx 'syncheck:format))
-  (cond
-    [(not pp-info)
-     `#(source ,(syntax-source stx)
-               ,(syntax-line stx)
-               ,(syntax-column stx)
-               ,(syntax-position stx)
-               ,(syntax-span stx))]
-    [else
-     (recursively-construct-formatting-info table pp-info)]))
 
 (define (construct-formatting-info-from-location name-to-location-map
                                                  loc-to-format-map
@@ -318,14 +164,6 @@
   (define-values (line col pos)
     (port-next-location (current-output-port)))
   line)
-
-(define (construct-formatting-info stx)
-  (define expanded-stx (expand stx))
-  (define name-stx-map
-    (extract-name-syntax-maps
-     expanded-stx
-     #:check-disappeared-use? #t))
-  (construct-formatting-info-from-syntax name-stx-map expanded-stx))
 
 (define (racket-format stx)
   (with-output-to-string
