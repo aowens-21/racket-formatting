@@ -9,7 +9,14 @@
 (provide (all-defined-out)
          (all-from-out "example-forms.rkt"))
 
-(define (extract-name-location-maps stx
+(struct format-loc (source pos) #:transparent)
+(struct loc-info (format srcloc) #:transparent)
+
+(define (srcloc->loc srcloc)
+  (format-loc (srcloc-source srcloc)
+               (srcloc-position srcloc)))
+
+(define (extract-name-srcloc-maps stx
                                   #:check-disappeared-use? [check-disappeared-use? #f])
   (define table (make-hash))
   (define (do-traverse datum)
@@ -45,25 +52,56 @@
   (do-traverse stx)
   table)
 
-
-(define (construct-formatting-info-from-location name-to-location-map
-                                                 loc-to-format-map
-                                                 loc)
+(define (construct-formatting-info-from-location name-to-srcloc-map
+                                                 loc-info-map
+                                                 srcloc)
+  (define loc (srcloc->loc srcloc))
   (cond
-    [(not (hash-has-key? loc-to-format-map loc))
-     `#(source ,(srcloc-source loc)
-               ,(srcloc-line loc)
-               ,(srcloc-column loc)
-               ,(srcloc-position loc)
-               ,(srcloc-span loc))]
+    [(not (hash-has-key? loc-info-map loc))
+     `#(source ,(srcloc-source srcloc)
+               ,(srcloc-line srcloc)
+               ,(srcloc-column srcloc)
+               ,(srcloc-position srcloc)
+               ,(srcloc-span srcloc))]
     [else
-     ;; TODO FIXME
-     (hash-ref loc-to-format-map loc)
-     #;
-     (recursively-construct-formatting-info-from-location
-      name-to-location-map
-      loc-to-format-map
-      (hash-ref loc-to-format-map loc))]))
+     (define format-at-loc
+       (loc-info-format
+        (hash-ref loc-info-map loc)))
+     (let recursively-construct-formatting-info ([format format-at-loc])
+       (match format
+         [(? string? s) s]
+         [(? symbol? name)
+          (define srcloc/#f
+            (hash-ref name-to-srcloc-map name (λ () #f)))
+          (cond
+            [(not srcloc/#f)
+             (format "MISSING:~a" name)]
+            [else
+             (construct-formatting-info-from-location
+              name-to-srcloc-map
+              loc-info-map
+              srcloc/#f)])]
+         [`#(<> ,elements ...)
+          `#(<>
+             ,@(for/list ([element (in-list elements)])
+                 (recursively-construct-formatting-info element)))]
+         [`#($$ ,elements ...)
+          `#($$
+             ,@(for/list ([element (in-list elements)])
+                 (recursively-construct-formatting-info element)))]
+         [`#(preserve-linebreak ,elements ...)
+          `#(preserve-linebreak
+             ,@(for/list ([element (in-list elements)])
+                 (recursively-construct-formatting-info element)))]
+         [`#(nest ,depth ,element)
+          `#(nest ,depth
+                  ,(recursively-construct-formatting-info element))]
+         [`#(options ,name ,options ...)
+          `#(options
+             ,name
+             ,@(for/list ([option (in-list options)])
+                 (cons (car option)
+                       (recursively-construct-formatting-info (cdr option)))))]))]))
 
 (define format-indentation (make-parameter 0))
 
@@ -172,7 +210,6 @@
       (print-formatted
        (construct-formatting-info stx)))))
 
-
 ;; format-file : source-file config-file dest-file
 ;;=>
 ;; format-file : source-file -> dest-string
@@ -180,17 +217,15 @@
 (require syntax/modread
          racket/pretty)
 
-(define-namespace-anchor here-namespace-anchor) 
+(define-namespace-anchor here-namespace-anchor)
 
 (define (format-file filename)
   (define stx
-    (call-with-input-file
-     filename
-     (λ (in)
-       (port-count-lines! in)
-       (with-module-reading-parameterization
-         (λ () (read-syntax filename in))))))
-
+    (call-with-input-file filename
+      (λ (in)
+        (port-count-lines! in)
+        (with-module-reading-parameterization
+          (λ () (read-syntax filename in))))))
 
   (define ns (make-empty-namespace))
   (parameterize ([current-namespace ns])
@@ -203,25 +238,37 @@
     (parameterize ([current-namespace ns])
       (expand stx)))
 
-  (define names-to-loc-map
-    (extract-name-location-maps expanded-stx
+  (define loc-info-map
+    (build-loc-info-map expanded-stx))
+
+  (with-output-to-string
+    (λ ()
+      (port-count-lines! (current-output-port))
+      (print-file-with-format
+       filename
+       loc-info-map))))
+
+(define (build-loc-info-map expanded-stx)
+  (define names-to-srcloc-map
+    (extract-name-srcloc-maps expanded-stx
                               #:check-disappeared-use? #t))
-  (define loc-to-format-with-names-map (build-loc-to-format-map expanded-stx))
-  (define loc-to-format-map
-    (for/hash ([loc (in-hash-keys loc-to-format-with-names-map)])
+  (define loc-info-with-names-map
+    (build-loc-info-with-names-map expanded-stx))
+  (define loc-info-map
+    (for/hash ([(loc info) (in-hash loc-info-with-names-map)])
       (values
        loc
-       (construct-formatting-info-from-location
-        names-to-loc-map
-        loc-to-format-with-names-map
-        loc))))
+       (loc-info
+        (construct-formatting-info-from-location
+         names-to-srcloc-map
+         loc-info-with-names-map
+         (loc-info-srcloc info))
+        (loc-info-srcloc info)))))
+  loc-info-map)
 
-  (pretty-write loc-to-format-map)
-  (void))
-
-(define (build-loc-to-format-map stx)
-  (define loc-to-format-map (make-hash))
-  (let loop ([stx stx])
+(define (build-loc-info-with-names-map expanded-stx)
+  (define loc-info-with-names-map (make-hash))
+  (let loop ([stx expanded-stx])
     (cond [(pair? stx)
            (loop (car stx))
            (loop (cdr stx))]
@@ -238,12 +285,50 @@
                       col
                       pos
                       span)
-             (hash-set! loc-to-format-map
-                        (make-srcloc source
-                                     line
-                                     col
-                                     pos
-                                     span)
-                        syncheck-format))
+             (define srcloc
+               (make-srcloc source
+                            line
+                            col
+                            pos
+                            span))
+             (hash-set! loc-info-with-names-map
+                        (srcloc->loc srcloc)
+                        (loc-info syncheck-format srcloc)))
            (loop (syntax-e stx))]))
-  loc-to-format-map)
+  loc-info-with-names-map)
+
+(define (print-file-with-format filename loc-info-map)
+  (call-with-input-file filename
+    (λ (in-port)
+      (port-count-lines! in-port)
+      (let copy-loop! ()
+        (define-values (line col pos)
+          (port-next-location in-port))
+        (define loc
+          (format-loc filename pos))
+        (cond
+          [(hash-has-key? loc-info-map loc)
+           (define loc-info-at-pos (hash-ref loc-info-map loc))
+           (define span (srcloc-span (loc-info-srcloc loc-info-at-pos)))
+           (define next-pos (+ pos span))
+           (eprintf
+            "format:\n  port-next-loc: ~s\n  file-pos: ~s\n  print: ~s\n  next: ~s\n\n"
+            pos
+            (file-position in-port)
+            (loc-info-srcloc loc-info-at-pos)
+            next-pos)
+           (print-formatted (loc-info-format loc-info-at-pos))
+           (set-port-next-location! in-port
+                                    #f
+                                    #f
+                                    next-pos)
+           (file-position in-port (+ (file-position in-port) span))
+           (copy-loop!)]
+          [else
+           (define ch-or-eof (read-char in-port))
+           (cond
+             [(eof-object? ch-or-eof)
+              (void)]
+             [else
+              (write-char ch-or-eof)
+              (copy-loop!)])])))))
