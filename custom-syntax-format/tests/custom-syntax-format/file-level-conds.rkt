@@ -8,3 +8,8 @@
                         "a"] (#t "b") (else
                                                      #f)
                ))
+
+(writeln
+ (my-cond (#t
+           (string-append "hello "
+                          (my-cond (else "world")))) (else 'not-here)))
