@@ -125,23 +125,38 @@
         (print-formatted-newline))
       (write-string (substring a-line space-count-at-start)))))
 
+(define (default-racket-format-print-source srcloc)
+  (define source (srcloc-source srcloc))
+  (define pos (srcloc-position srcloc))
+  (define span (srcloc-span srcloc))
+  (define col (srcloc-column srcloc))
+  (indent-at-current-col
+   (lambda ()
+     (write-string/shift-indentation
+      ;; Position and line locations are numbered from 1;
+      (substring (file->string source)
+                 (sub1 pos)
+                 (sub1 (+ pos span)))
+      ;; column locations are numbered from 0.
+      (- (format-indentation) col)))))
+
 ;; maps some config options
 (define racket-format-config (make-parameter (hash)))
+
+;; function to print a block of source text
+(define current-racket-format-print-source (make-parameter default-racket-format-print-source))
 
 (define (print-formatted pp-info)
   (match pp-info
     [(? string? s)
      (write-string s)]
     [`#(source ,source ,line ,col ,pos ,span)
-     (indent-at-current-col
-      (lambda ()
-        (write-string/shift-indentation
-         ;; Position and line locations are numbered from 1;
-         (substring (file->string source)
-                    (sub1 pos)
-                    (sub1 (+ pos span)))
-         ;; column locations are numbered from 0.
-         (- (format-indentation) col))))]
+     ((current-racket-format-print-source)
+      (make-srcloc source
+                   line
+                   col
+                   pos
+                   span))]
     [`#(<> ,elements ...)
      (for ([(element idx) (in-indexed elements)])
        (print-formatted element))]
@@ -297,7 +312,9 @@
            (loop (syntax-e stx))]))
   loc-info-with-names-map)
 
-(define (print-file-with-format filename loc-info-map)
+
+
+(define (print-file-with-format filename loc-info-map start-pos span)
   (call-with-input-file filename
     (λ (in-port)
       (port-count-lines! in-port)
