@@ -312,40 +312,59 @@
            (loop (syntax-e stx))]))
   loc-info-with-names-map)
 
+(define (print-file-with-format-in-range filename content loc-info-map start-pos span)
+  (define end-pos (+ start-pos span))
+  (let copy-loop! ([pos start-pos])
+    (when (< pos end-pos)
+      (define loc
+        (format-loc filename pos))
+      (cond
+        [(hash-has-key? loc-info-map loc)
+         (define loc-info-at-pos (hash-ref loc-info-map loc))
+         (define span (srcloc-span (loc-info-srcloc loc-info-at-pos)))
+         (define next-pos (+ pos span))
+         (eprintf
+          "format:\n  port-next-loc: ~s\n  print: ~s\n  next: ~s\n\n"
+          pos
+          (loc-info-srcloc loc-info-at-pos)
+          next-pos)
+         (print-formatted (loc-info-format loc-info-at-pos))
+         (copy-loop! next-pos)]
+        [else
+         (define ch (string-ref content (- pos 1)))
+         (write-char ch)
+         (copy-loop! (+ pos 1))]))))
 
+(define (print-file-with-format filename loc-info-map)
+  (define file-content
+    (file->string filename))
 
-(define (print-file-with-format filename loc-info-map start-pos span)
-  (call-with-input-file filename
-    (λ (in-port)
-      (port-count-lines! in-port)
-      (let copy-loop! ()
-        (define-values (line col pos)
-          (port-next-location in-port))
-        (define loc
-          (format-loc filename pos))
-        (cond
-          [(hash-has-key? loc-info-map loc)
-           (define loc-info-at-pos (hash-ref loc-info-map loc))
-           (define span (srcloc-span (loc-info-srcloc loc-info-at-pos)))
-           (define next-pos (+ pos span))
-           (eprintf
-            "format:\n  port-next-loc: ~s\n  file-pos: ~s\n  print: ~s\n  next: ~s\n\n"
-            pos
-            (file-position in-port)
-            (loc-info-srcloc loc-info-at-pos)
-            next-pos)
-           (print-formatted (loc-info-format loc-info-at-pos))
-           (set-port-next-location! in-port
-                                    #f
-                                    #f
-                                    next-pos)
-           (file-position in-port (+ (file-position in-port) span))
-           (copy-loop!)]
-          [else
-           (define ch-or-eof (read-char in-port))
-           (cond
-             [(eof-object? ch-or-eof)
-              (void)]
-             [else
-              (write-char ch-or-eof)
-              (copy-loop!)])])))))
+  (define old-print-source (current-racket-format-print-source))
+  (define (print-source-with-format srcloc)
+    (define source (srcloc-source srcloc))
+    (define pos (srcloc-position srcloc))
+    (define span (srcloc-span srcloc))
+    (cond
+      [(and (equal? filename source)
+            ;; first position
+            (<= 1 pos)
+            ;; first position
+            (<= pos (string-length file-content))
+            ;; last position
+            (<= (+ pos span -1) (string-length file-content)))
+       (print-file-with-format-in-range
+        filename
+        file-content
+        loc-info-map
+        pos
+        span)]
+      [else
+       (old-print-source srcloc)]))
+
+  (parameterize ([current-racket-format-print-source print-source-with-format])
+    (print-file-with-format-in-range
+     filename
+     file-content
+     loc-info-map
+     1
+     (string-length file-content))))
