@@ -312,28 +312,76 @@
            (loop (syntax-e stx))]))
   loc-info-with-names-map)
 
-(define (print-file-with-format-in-range filename content loc-info-map start-pos span)
+(define (print-file-with-format-in-range
+         filename
+         content
+         loc-info-map
+         start-pos
+         span
+         #:shift-amount [shift-amount 0])
   (define end-pos (+ start-pos span))
-  (let copy-loop! ([pos start-pos])
+  (let copy-loop! ([line-idx 0]
+                   [pos start-pos])
     (when (< pos end-pos)
-      (define loc
-        (format-loc filename pos))
-      (cond
-        [(hash-has-key? loc-info-map loc)
-         (define loc-info-at-pos (hash-ref loc-info-map loc))
-         (define span (srcloc-span (loc-info-srcloc loc-info-at-pos)))
-         (define next-pos (+ pos span))
-         (eprintf
-          "format:\n  port-next-loc: ~s\n  print: ~s\n  next: ~s\n\n"
-          pos
-          (loc-info-srcloc loc-info-at-pos)
-          next-pos)
-         (print-formatted (loc-info-format loc-info-at-pos))
-         (copy-loop! next-pos)]
-        [else
-         (define ch (string-ref content (- pos 1)))
-         (write-char ch)
-         (copy-loop! (+ pos 1))]))))
+      #|
+          ...........|ABCD|(my-cond ...)EFGH
+          ^          |   1. loc with format isntruction, or
+         pos         |   2. newline or other chars
+          |
+          ~~~~~~~~~~~ space-count
+      |#
+      (define space-count
+        (let space-count-loop ([pos pos]
+                               [count 0])
+          (cond
+            [(>= pos end-pos)
+             count]
+            [(member (string-ref content (- pos 1)) '(#\space #\tab) char=?)
+             (define loc (format-loc filename pos))
+             (when (hash-has-key? loc-info-map loc)
+               (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
+                      (string-append
+                       "discover formatting instructions at location ~s "
+                       "but the source texts are spaces")
+                      loc))
+             (space-count-loop (+ 1 pos) (+ count 1))]
+            [else
+             (define loc (format-loc filename pos))
+             (when (and (char=? (string-ref content (- pos 1)) #\newline)
+                        (hash-has-key? loc-info-map loc))
+               (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
+                      (string-append
+                       "discover formatting instructions at location ~s "
+                       "but the source text is a linebreak")
+                      loc))
+             count])))
+      (when (> line-idx 0)
+        (parameterize ([format-indentation
+                        (max 0 (+ shift-amount space-count))])
+          (print-formatted-newline)))
+      (define line-finish-pos
+        (let copy-current-line! ([pos (+ pos space-count)])
+          (cond
+            [(>= pos end-pos)
+             pos]
+            [(char=? (string-ref content (- pos 1)) #\newline)
+             (+ 1 pos)]
+            [else
+             (define loc
+               (format-loc filename pos))
+             (cond
+               [(hash-has-key? loc-info-map loc)
+                (define loc-info-at-pos (hash-ref loc-info-map loc))
+                (define span (srcloc-span (loc-info-srcloc loc-info-at-pos)))
+                (define next-pos (+ pos span))
+                (indent-at-current-col
+                 (λ () (print-formatted (loc-info-format loc-info-at-pos))))
+                (copy-current-line! next-pos)]
+               [else
+                (define ch (string-ref content (- pos 1)))
+                (write-char ch)
+                (copy-current-line! (+ pos 1))])])))
+      (copy-loop! (+ 1 line-idx) line-finish-pos))))
 
 (define (print-file-with-format filename loc-info-map)
   (define file-content
@@ -342,6 +390,7 @@
   (define old-print-source (current-racket-format-print-source))
   (define (print-source-with-format srcloc)
     (define source (srcloc-source srcloc))
+    (define col (srcloc-column srcloc))
     (define pos (srcloc-position srcloc))
     (define span (srcloc-span srcloc))
     (cond
@@ -352,12 +401,15 @@
             (<= pos (string-length file-content))
             ;; last position
             (<= (+ pos span -1) (string-length file-content)))
-       (print-file-with-format-in-range
-        filename
-        file-content
-        loc-info-map
-        pos
-        span)]
+       (indent-at-current-col
+        (λ ()
+          (print-file-with-format-in-range
+           filename
+           file-content
+           loc-info-map
+           pos
+           span
+           #:shift-amount (- (format-indentation) col))))]
       [else
        (old-print-source srcloc)]))
 
