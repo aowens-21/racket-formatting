@@ -320,52 +320,15 @@
          span
          #:shift-amount [shift-amount 0])
   (define end-pos (+ start-pos span))
-  (let copy-loop! ([line-idx 0]
-                   [pos start-pos])
+  (let copy-loop! ([pos start-pos])
     (when (< pos end-pos)
-      #|
-          ...........|ABCD|(my-cond ...)EFGH
-          ^          |   1. loc with format isntruction, or
-         pos         |   2. newline or other chars
-          |
-          ~~~~~~~~~~~ space-count
-      |#
-      (define space-count
-        (let space-count-loop ([pos pos]
-                               [count 0])
-          (cond
-            [(>= pos end-pos)
-             count]
-            [(member (string-ref content (- pos 1)) '(#\space #\tab) char=?)
-             (define loc (format-loc filename pos))
-             (when (hash-has-key? loc-info-map loc)
-               (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
-                      (string-append
-                       "discover formatting instructions at location ~s "
-                       "but the source texts are spaces")
-                      loc))
-             (space-count-loop (+ 1 pos) (+ count 1))]
-            [else
-             (define loc (format-loc filename pos))
-             (when (and (char=? (string-ref content (- pos 1)) #\newline)
-                        (hash-has-key? loc-info-map loc))
-               (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
-                      (string-append
-                       "discover formatting instructions at location ~s "
-                       "but the source text is a linebreak")
-                      loc))
-             count])))
-      (when (> line-idx 0)
-        (parameterize ([format-indentation
-                        (max 0 (+ shift-amount space-count))])
-          (print-formatted-newline)))
       (define line-finish-pos
-        (let copy-current-line! ([pos (+ pos space-count)])
+        (let copy-current-line! ([pos pos])
           (cond
             [(>= pos end-pos)
              pos]
             [(char=? (string-ref content (- pos 1)) #\newline)
-             (+ 1 pos)]
+             pos]
             [else
              (define loc
                (format-loc filename pos))
@@ -381,7 +344,51 @@
                 (define ch (string-ref content (- pos 1)))
                 (write-char ch)
                 (copy-current-line! (+ pos 1))])])))
-      (copy-loop! (+ 1 line-idx) line-finish-pos))))
+      (cond
+        [(and (< line-finish-pos end-pos)
+              (char=? (string-ref content (- line-finish-pos 1)) #\newline))
+         #|
+           The beginning of the next line:
+
+           ........\n  <- line-finish-pos points to the #\newline character
+           .....................|ABCD|(my-cond ...)EFGH
+           ^                    |   1. loc with format isntruction, or
+           line-finish-pos + 1  |   2. newline or other chars
+           |
+           ~~~~~~~~~~~ space-count
+         |#
+         (define space-count
+           (let space-count-loop ([pos (+ line-finish-pos 1)]
+                                  [count 0])
+             (cond
+               [(>= pos end-pos)
+                count]
+               [(member (string-ref content (- pos 1)) '(#\space #\tab) char=?)
+                (define loc (format-loc filename pos))
+                (when (hash-has-key? loc-info-map loc)
+                  (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
+                         (string-append
+                          "discover formatting instructions at location ~s "
+                          "but the source texts are spaces")
+                         loc))
+                (space-count-loop (+ 1 pos) (+ count 1))]
+               [else
+                (define loc (format-loc filename pos))
+                (when (and (char=? (string-ref content (- pos 1)) #\newline)
+                           (hash-has-key? loc-info-map loc))
+                  (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
+                         (string-append
+                          "discover formatting instructions at location ~s "
+                          "but the source text is a linebreak")
+                         loc))
+                count])))
+         (parameterize ([format-indentation
+                         (max 0 (+ shift-amount space-count))])
+           (print-formatted-newline))
+         ;; skip the #\newline character and the leading spaces
+         (copy-loop! (+ line-finish-pos 1 space-count))]
+        [else
+         (copy-loop! line-finish-pos)]))))
 
 (define (print-file-with-format filename loc-info-map)
   (define file-content
