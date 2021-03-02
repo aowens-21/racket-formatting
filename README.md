@@ -8,32 +8,7 @@
 
 ### What are our goals (for now)?
 
-1. Add a test case for formatting the whole file.
-    * What (top-level?) API should provided? -- `format-file : source-file -> dest-string`
-    * Traverse fully expanded program to build a map from
-      source locations to format instructions
-    * Construct the formatted file by copying the source code.
-      If encountered a source location that has formatting instruction,
-      switch to print-formatted mode.
-    * Handle nested format instructions. Currently, `print-formatted` interpret `#(source srcloc)` by copying the content at `srcloc` to the output. However, source codes at `srcloc` can also contain formatting instructions. An example:
-        ```
-        (my-cond (#t
-                  (string-append "hello "
-                                 (my-cond (else "world")))) (else 'not-here))
-        ```
-        Current output:
-        ```
-        (writeln
-         (my-cond [#t
-                   (string-append "hello "
-                                  (my-cond (else "world")))]
-                  [else 'not-here]))
-        ```
-
-2. Customizable combinators should provide some information for forms that don't have
-   a pretty printing specification (for example, DrRacket's default indentation rules)
-
-3. Abstract over the naming pattern:
+1. Abstract over the naming pattern:
 
     ```racket
     (syntax-parse stx
@@ -46,6 +21,9 @@
                       ([expr (in-syntax exprs)])
              (attach-name expr "my-cond.clause"))))
     ```
+
+2. Customizable combinators should provide some information for forms that don't have
+   a pretty printing specification (for example, DrRacket's default indentation rules)
 
 ### TODOS:
 
@@ -298,3 +276,25 @@ DONE - Shift the indentation of the `#(source ...)` block
 
 3. Figure out how to make combinators customizable for the user of the formatting tool,
    types of customization configured by the macro authors.
+
+4. Add a test case for formatting the whole file.
+    * What (top-level?) API should provided? -- `format-file : source-file -> dest-string`
+    * Traverse fully expanded program to build a map from
+      source locations to format instructions
+    * Construct the formatted file by copying the source code.
+      If encountered a source location that has formatting instruction,
+      switch to print-formatted mode.
+    * Handle nested format instructions. Currently, `print-formatted` interpret `#(source srcloc)` by copying the content at `srcloc` to the output. However, source codes at `srcloc` can also contain formatting instructions. An example:
+        ```
+        (my-cond (#t
+                  (string-append "hello "
+                                 (my-cond (else "world")))) (else 'not-here))
+        ```
+        Current output:
+        ```
+        (writeln
+         (my-cond [#t
+                   (string-append "hello "
+                                  (my-cond (else "world")))]
+                  [else 'not-here]))
+        ```
