@@ -2,16 +2,10 @@
 
 (require (for-syntax racket/base
                      racket/sequence
-                     syntax/parse))
+                     syntax/parse
+                     "combinator.rkt"))
 
 (provide (all-defined-out))
-
-(begin-for-syntax
-  (define (attach-name stx [base "g"])
-    (define name (gensym base))
-    (values (syntax-property stx 'syncheck:format:name name)
-            name))
-  )
 
 (define-syntax (my-cond stx)
   (syntax-parse stx
@@ -23,32 +17,32 @@
          (for/lists (exprs/name names)
                     ([expr (in-syntax exprs)])
            (attach-name expr "my-cond.clause"))))
+     (define this-form (symbol->string (syntax-e #'form)))
      (with-syntax ([((expr ...) ...) exprss/name])
        (syntax-property
         (syntax/loc stx (cond [expr ...] ...))
         'syncheck:format
-        (let ([body `#($$ ,@(for/list ([names (in-list namess)])
-                              (define names-with-spaces (apply append (for/list ([name (in-list names)])
-                                                                        (list " " name))))
-                              `#(<> "[" #(options
-                                          cond-body-line-break
-                                          ,(cons 'preserve
-                                                 `#(preserve-linebreak ,@names))
-                                          ,(cons 'same-line
-                                                 `#(<> ,@(if (pair? names-with-spaces)
-                                                             (cdr names-with-spaces)
-                                                             names-with-spaces)))
-                                          ,(cons 'force-line-break
-                                                 `#($$ ,@names)))
-                                    "]")))])
-          `#(<> "("
-                #(options
-                  cond-first-clause
-                  ,(cons 'same-line
-                         `#(<> ,(symbol->string (syntax-e #'form)) " " ,body))
-                  ,(cons 'force-line-break
-                         `#($$ ,(symbol->string (syntax-e #'form)) #(nest 1 ,body))))
-                ")"))))]))
+        (let ([body (apply $$
+                           (for/list ([names (in-list namess)])
+                             (define names-with-spaces (apply append (for/list ([name (in-list names)])
+                                                                       (list " " name))))
+                             (<> "[" (options
+                                      'cond-body-line-break
+                                      'preserve
+                                      (apply preserve-linebreak names)
+                                      'same-line
+                                      (apply <> (if (pair? names-with-spaces)
+                                                    (cdr names-with-spaces)
+                                                    names-with-spaces))
+                                      'force-line-break
+                                      (apply $$ names))
+                                 "]")))])
+          (<> "("
+              (options
+               'cond-first-clause
+               'same-line (<> this-form " " body)
+               'force-line-break ($$ this-form (nest 1 body)))
+              ")"))))]))
 
 (define-syntax (my-let stx)
   (syntax-parse stx
