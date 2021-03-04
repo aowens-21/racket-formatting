@@ -7,16 +7,6 @@
 
 (provide (all-defined-out))
 
-(begin-for-syntax
-  (define-syntax-class named
-    (pattern _
-             #:with fresh-name (datum->syntax #f (gensym "g"))
-             #:attr name #'fresh-name
-             #:attr stx (syntax-property this-syntax
-                                         'syncheck:format:name
-                                         (syntax-e #'fresh-name))))
-  )
-
 (define-syntax (my-cond stx)
   (syntax-parse stx
     #:literals (else)
@@ -24,20 +14,20 @@
      (define this-form (symbol->string (syntax-e #'form)))
      (define body
        (apply $$
-              (for/list ([names (in-list (syntax->datum #'((expr.name ...) ...)))])
-                (define names-with-spaces
-                  (apply append (for/list ([name (in-list names)])
-                                  (list " " name))))
+              (for/list ([exprs (in-list (syntax-e #'((expr.stx ...) ...)))])
+                (define exprs-with-spaces
+                  (apply append (for/list ([expr (in-list (syntax-e exprs))])
+                                  (list " " expr))))
                 (<> "[" (options
                          'cond-body-line-break
                          'preserve
-                         (apply preserve-linebreak names)
+                         (apply preserve-linebreak (syntax-e exprs))
                          'same-line
-                         (apply <> (if (pair? names-with-spaces)
-                                       (cdr names-with-spaces)
-                                       names-with-spaces))
+                         (apply <> (if (pair? exprs-with-spaces)
+                                       (cdr exprs-with-spaces)
+                                       exprs-with-spaces))
                          'force-line-break
-                         (apply $$ names))
+                         (apply $$ (syntax-e exprs)))
                     "]"))))
      (syntax-property
       (syntax/loc stx (cond [expr.stx ...] ...))
@@ -59,16 +49,14 @@
           ($$ (<> (symbol->string (syntax-e #'form))
                   " ("
                   (apply $$
-                         (for/list ([lhs-name (in-list (syntax->datum #'(lhs.name ...)))]
-                                    [rhs-name (in-list (syntax->datum #'(rhs.name ...)))])
+                         (for/list ([lhs (in-list (syntax-e #'(lhs.stx ...)))]
+                                    [rhs (in-list (syntax-e #'(rhs.stx ...)))])
                            (<> "["
-                               lhs-name
+                               lhs
                                " "
-                               rhs-name
+                               rhs
                                "]")))
                   ")")
               (nest 1
-                    (apply $$
-                           (for/list ([body-name (in-list (syntax->datum #'(body-expr.name ...)))])
-                             body-name))))
+                    (apply $$ (syntax-e #'(body-expr.stx ...)))))
           ")"))]))
