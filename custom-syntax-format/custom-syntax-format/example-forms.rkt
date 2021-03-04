@@ -11,6 +11,23 @@
   (syntax-parse stx
     #:literals (else)
     [(form (expr:named ...+) ...)
+     #;
+     (define body
+       (format-template
+        ($$
+         (<> "[" (options cond-body-line-break
+                          preserve         (preserve-linebreak expr.stx ...)
+                          same-line        (<> (~@ " " expr.stx) ...)
+                          force-line-break ($$ expr.stx ...))
+             "]")
+         ...)))
+     #;
+     (format-template
+      (<> "("
+          (options cond-first-clause
+                   same-line        (<> this-form " " (format-unquote body))
+                   force-line-break ($$ this-form (nest 1 (format-unquote body))))
+          ")"))
      (define this-form (symbol->string (syntax-e #'form)))
      (define body
        (apply $$
@@ -42,6 +59,12 @@
      (syntax-property
       (syntax/loc stx (let ([lhs.stx rhs.stx] ...) body-expr.stx ...))
       'syncheck:format
+      #;
+      (format-template
+       (<> "("
+           ($$ (<> form " (" (<> "[" lhs.stx " " rhs.stx "]") ... ")")
+               (nest 1 ($$ body-expr.stx ...)))
+           ")"))
       (<> "("
           ($$ (<> (symbol->string (syntax-e #'form))
                   " ("

@@ -8,19 +8,39 @@
 
 ### What are our goals (for now)?
 
-1. Abstract over the naming pattern:
+1. Implement a simple format template, e.g.
 
-    ```racket
-    (syntax-parse stx
-      #:literals (else)
-      [(form (expr ...+) ...)
-       (define-values (exprss/name namess)
-         (for/lists (exprss/name namess)
-                    ([exprs (in-syntax #'((expr ...) ...))])
-           (for/lists (exprs/name names)
-                      ([expr (in-syntax exprs)])
-             (attach-name expr "my-cond.clause"))))
-    ```
+    * For `(my-cond (expr:named ...+) ...)`:
+
+        ```
+        (define body
+          (format-template
+           ($$
+            (<> "[" (options cond-body-line-break
+                             preserve         (preserve-linebreak expr.stx ...)
+                             same-line        (<> (~@ " " expr.stx) ...)
+                             force-line-break ($$ expr.stx ...))
+                "]")
+            ...)))
+        (format-template
+         (<> "("
+             (options cond-first-clause
+                      same-line
+                      (<> this-form " " (format-unquote body))
+                      force-line-break
+                      ($$ this-form (nest 1 (format-unquote body))))
+             ")"))
+        ```
+
+    * For `(my-let ([lhs:named rhs:named] ...) body-expr:named ...+)`:
+
+        ```
+        (format-template
+         (<> "("
+             ($$ (<> form " (" (<> "[" lhs.stx " " rhs.stx "]") ... ")")
+                 (nest 1 ($$ body-expr.stx ...)))
+             ")"))
+        ```
 
 2. Customizable combinators should provide some information for forms that don't have
    a pretty printing specification (for example, DrRacket's default indentation rules)
@@ -297,4 +317,48 @@ DONE - Shift the indentation of the `#(source ...)` block
                    (string-append "hello "
                                   (my-cond (else "world")))]
                   [else 'not-here]))
+        ```
+5. Abstract over the naming pattern:
+
+    ```racket
+    (syntax-parse stx
+      #:literals (else)
+      [(form (expr ...+) ...)
+       (define-values (exprss/name namess)
+         (for/lists (exprss/name namess)
+                    ([exprs (in-syntax #'((expr ...) ...))])
+           (for/lists (exprs/name names)
+                      ([expr (in-syntax exprs)])
+             (attach-name expr "my-cond.clause"))))
+    ```
+
+    * Parsing with the `named` syntax class automatically attaches
+      the name to the pattern variable. The users can refer to the
+      annotated syntax object by the `.stx` attribute:
+
+        ```
+        (syntax-parse stx
+         [(form ([lhs:named rhs:named] ...) body-expr:named ...+)
+          (syntax-property
+           (syntax/loc stx (let ([lhs.stx rhs.stx] ...) body-expr.stx ...))
+           'syncheck:format
+           ...
+        ````
+
+    * The format combinators automatically coerce the annotated
+      syntax objects into their names when constructing the format
+      instructions. The users can directly pass such syntax objects
+      to the combinators.
+
+        ```
+        (<> "("
+            ($$ (<> (symbol->string (syntax-e #'form))
+                    " ("
+                    (apply $$
+                           (for/list ([lhs (in-list (syntax-e #'(lhs.stx ...)))]
+                                      [rhs (in-list (syntax-e #'(rhs.stx ...)))])
+                             (<> "[" lhs " " rhs "]")))
+                    ")")
+                (nest 1 (apply $$ (syntax-e #'(body-expr.stx ...)))))
+            ")")
         ```
