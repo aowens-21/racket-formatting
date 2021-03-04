@@ -333,8 +333,8 @@ DONE - Shift the indentation of the `#(source ...)` block
     ```
 
     * Parsing with the `named` syntax class automatically attaches
-      the name to the pattern variable. The users can refer to the
-      annotated syntax object by the `.stx` attribute:
+      fresh names to the pattern variables. The programmers can refer to the
+      annotated syntax objects using the `.stx` attribute:
 
         ```
         (syntax-parse stx
@@ -345,9 +345,9 @@ DONE - Shift the indentation of the `#(source ...)` block
            ...
         ````
 
-    * The format combinators automatically coerce the annotated
-      syntax objects into their names when constructing the format
-      instructions. The users can directly pass such syntax objects
+    * The format combinators automatically coerce the annotated syntax
+      objects into their names when constructing the format instructions.
+      The programmers can directly pass such syntax objects
       to the combinators.
 
         ```
