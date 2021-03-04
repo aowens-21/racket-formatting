@@ -18,25 +18,22 @@
                 (define exprs-with-spaces
                   (apply append (for/list ([expr (in-list (syntax-e exprs))])
                                   (list " " expr))))
-                (<> "[" (options
-                         'cond-body-line-break
-                         'preserve
-                         (apply preserve-linebreak (syntax-e exprs))
-                         'same-line
-                         (apply <> (if (pair? exprs-with-spaces)
-                                       (cdr exprs-with-spaces)
-                                       exprs-with-spaces))
-                         'force-line-break
-                         (apply $$ (syntax-e exprs)))
+                (<> "["
+                    (options 'cond-body-line-break
+                             'preserve         (apply preserve-linebreak (syntax-e exprs))
+                             'same-line        (apply <>
+                                                      (if (pair? exprs-with-spaces)
+                                                          (cdr exprs-with-spaces)
+                                                          exprs-with-spaces))
+                             'force-line-break (apply $$ (syntax-e exprs)))
                     "]"))))
      (syntax-property
       (syntax/loc stx (cond [expr.stx ...] ...))
       'syncheck:format
       (<> "("
-          (options
-           'cond-first-clause
-           'same-line (<> this-form " " body)
-           'force-line-break ($$ this-form (nest 1 body)))
+          (options 'cond-first-clause
+                   'same-line        (<> this-form " " body)
+                   'force-line-break ($$ this-form (nest 1 body)))
           ")"))]))
 
 (define-syntax (my-let stx)
@@ -51,11 +48,7 @@
                   (apply $$
                          (for/list ([lhs (in-list (syntax-e #'(lhs.stx ...)))]
                                     [rhs (in-list (syntax-e #'(rhs.stx ...)))])
-                           (<> "["
-                               lhs
-                               " "
-                               rhs
-                               "]")))
+                           (<> "[" lhs " " rhs "]")))
                   ")")
               (nest 1
                     (apply $$ (syntax-e #'(body-expr.stx ...)))))
