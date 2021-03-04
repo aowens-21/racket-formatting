@@ -7,42 +7,47 @@
 
 (provide (all-defined-out))
 
+(begin-for-syntax
+  (define-syntax-class named
+    (pattern _
+             #:with fresh-name (datum->syntax #f (gensym "g"))
+             #:attr name #'fresh-name
+             #:attr stx (syntax-property this-syntax
+                                         'syncheck:format:name
+                                         (syntax-e #'fresh-name))))
+  )
+
 (define-syntax (my-cond stx)
   (syntax-parse stx
     #:literals (else)
-    [(form (expr ...+) ...)
-     (define-values (exprss/name namess)
-       (for/lists (exprss/name namess)
-                  ([exprs (in-syntax #'((expr ...) ...))])
-         (for/lists (exprs/name names)
-                    ([expr (in-syntax exprs)])
-           (attach-name expr "my-cond.clause"))))
+    [(form (expr:named ...+) ...)
      (define this-form (symbol->string (syntax-e #'form)))
-     (with-syntax ([((expr ...) ...) exprss/name])
-       (syntax-property
-        (syntax/loc stx (cond [expr ...] ...))
-        'syncheck:format
-        (let ([body (apply $$
-                           (for/list ([names (in-list namess)])
-                             (define names-with-spaces (apply append (for/list ([name (in-list names)])
-                                                                       (list " " name))))
-                             (<> "[" (options
-                                      'cond-body-line-break
-                                      'preserve
-                                      (apply preserve-linebreak names)
-                                      'same-line
-                                      (apply <> (if (pair? names-with-spaces)
-                                                    (cdr names-with-spaces)
-                                                    names-with-spaces))
-                                      'force-line-break
-                                      (apply $$ names))
-                                 "]")))])
-          (<> "("
-              (options
-               'cond-first-clause
-               'same-line (<> this-form " " body)
-               'force-line-break ($$ this-form (nest 1 body)))
-              ")"))))]))
+     (define body
+       (apply $$
+              (for/list ([names (in-list (syntax->datum #'((expr.name ...) ...)))])
+                (define names-with-spaces
+                  (apply append (for/list ([name (in-list names)])
+                                  (list " " name))))
+                (<> "[" (options
+                         'cond-body-line-break
+                         'preserve
+                         (apply preserve-linebreak names)
+                         'same-line
+                         (apply <> (if (pair? names-with-spaces)
+                                       (cdr names-with-spaces)
+                                       names-with-spaces))
+                         'force-line-break
+                         (apply $$ names))
+                    "]"))))
+     (syntax-property
+      (syntax/loc stx (cond [expr.stx ...] ...))
+      'syncheck:format
+      (<> "("
+          (options
+           'cond-first-clause
+           'same-line (<> this-form " " body)
+           'force-line-break ($$ this-form (nest 1 body)))
+          ")"))]))
 
 (define-syntax (my-let stx)
   (syntax-parse stx
