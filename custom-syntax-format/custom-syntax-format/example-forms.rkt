@@ -51,33 +51,24 @@
 
 (define-syntax (my-let stx)
   (syntax-parse stx
-    [(form ([lhs rhs] ...) body-expr ...+)
-     (define-values (exprss/name namess)
-       (for/lists (exprss/name namess)
-                  ([exprs (in-syntax #'((lhs rhs) ...))])
-         (for/lists (exprs/name names)
-                    ([expr (in-syntax exprs)])
-           (attach-name expr "my-let.clause"))))
-     (define-values (body-exprss/name body-namess)
-       (for/lists (body-exprss/name body-namess)
-                  ([body (in-syntax #'(body-expr ...))])
-         (attach-name body "my-let-body.clause")))
-     (with-syntax ([((lhs rhs) ...) exprss/name]
-                   [(body-expr ...) body-exprss/name])
-       (syntax-property
-        (syntax/loc stx (let ([lhs rhs] ...) body-expr ...))
-        'syncheck:format
-        `#(<> "("
-              #($$ #(<> ,(symbol->string (syntax-e #'form))
-                        " ("
-                        #($$ ,@(for/list ([names (in-list namess)])
-                                 `#(<> "["
-                                       ,(list-ref names 0)
-                                       " "
-                                       ,(list-ref names 1)
-                                       "]")))
-                        ")")
-                   #(nest 1
-                          #($$ ,@(for/list ([body-name (in-list body-namess)])
-                                   body-name))))
-              ")")))]))
+    [(form ([lhs:named rhs:named] ...) body-expr:named ...+)
+     (syntax-property
+      (syntax/loc stx (let ([lhs.stx rhs.stx] ...) body-expr.stx ...))
+      'syncheck:format
+      (<> "("
+          ($$ (<> (symbol->string (syntax-e #'form))
+                  " ("
+                  (apply $$
+                         (for/list ([lhs-name (in-list (syntax->datum #'(lhs.name ...)))]
+                                    [rhs-name (in-list (syntax->datum #'(rhs.name ...)))])
+                           (<> "["
+                               lhs-name
+                               " "
+                               rhs-name
+                               "]")))
+                  ")")
+              (nest 1
+                    (apply $$
+                           (for/list ([body-name (in-list (syntax->datum #'(body-expr.name ...)))])
+                             body-name))))
+          ")"))]))
