@@ -13,11 +13,10 @@
 
 (define-syntax-class named
   (pattern _
-           #:with fresh-name (datum->syntax #f (gensym "g"))
-           #:attr name #'fresh-name
+           #:attr name (gensym "g")
            #:attr stx (syntax-property this-syntax
                                        'syncheck:format:name
-                                       (syntax-e #'fresh-name))))
+                                       (attribute name))))
 
 (define (coerce-format value)
   (match value
