@@ -11,35 +11,19 @@
 (define-syntax (my-cond stx)
   (syntax-parse stx
     #:literals (else)
-    [(form (expr:named ...+) ...)
-     #;
+    [(form (expr1:named expr2:named ...) ...)
      (define body
-       (format-template
+       (quasiformat-template
         ($$
          (<> "[" (options cond-body-line-break
-                          preserve         (preserve-linebreak expr.stx ...)
-                          same-line        (<> (~@ " " expr.stx) ...)
-                          force-line-break ($$ expr.stx ...))
+                          preserve         (preserve-linebreak expr1.stx expr2.stx ...)
+                          same-line        (<> expr1.stx (~@ " " expr2.stx) ...)
+                          force-line-break ($$ expr1.stx expr2.stx ...))
              "]")
          ...)))
      (define this-form (symbol->string (syntax-e #'form)))
-     (define body
-       (apply $$
-              (for/list ([exprs (in-list (syntax-e #'((expr.stx ...) ...)))])
-                (define exprs-with-spaces
-                  (apply append (for/list ([expr (in-list (syntax-e exprs))])
-                                  (list " " expr))))
-                (<> "["
-                    (options 'cond-body-line-break
-                             'preserve         (apply preserve-linebreak (syntax-e exprs))
-                             'same-line        (apply <>
-                                                      (if (pair? exprs-with-spaces)
-                                                          (cdr exprs-with-spaces)
-                                                          exprs-with-spaces))
-                             'force-line-break (apply $$ (syntax-e exprs)))
-                    "]"))))
      (syntax-property
-      (syntax/loc stx (cond [expr.stx ...] ...))
+      (syntax/loc stx (cond [expr1.stx expr2.stx ...] ...))
       'syncheck:format
       (quasiformat-template
        (<> "("
