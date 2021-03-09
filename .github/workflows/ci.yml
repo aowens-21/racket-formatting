@@ -30,5 +30,7 @@ jobs:
         run: raco pkg install --no-docs --auto --name custom-syntax-format ./custom-syntax-format
       - name: Checking installed libraries
         run: raco pkg show -a
-      - name: Testing custom-syntax-format
+      - name: Testing custom-syntax-format library
+        run: raco test -c custom-syntax-format
+      - name: Running custom-syntax-format tests
         run: raco test -c tests/custom-syntax-format
