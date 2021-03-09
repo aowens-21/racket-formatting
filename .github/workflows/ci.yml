@@ -31,6 +31,6 @@ jobs:
       - name: Checking installed libraries
         run: raco pkg show -a
       - name: Testing custom-syntax-format library
-        run: raco test -c custom-syntax-format
+        run: raco test -t -x -c custom-syntax-format
       - name: Running custom-syntax-format tests
-        run: raco test -c tests/custom-syntax-format
+        run: raco test -t -c tests/custom-syntax-format
