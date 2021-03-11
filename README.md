@@ -8,41 +8,7 @@
 
 ### What are our goals (for now)?
 
-1. Implement a simple format template, e.g.
-
-    * For `(my-cond (expr:named ...+) ...)`:
-
-        ```
-        (define body
-          (format-template
-           ($$
-            (<> "[" (options cond-body-line-break
-                             preserve         (preserve-linebreak expr.stx ...)
-                             same-line        (<> (~@ " " expr.stx) ...)
-                             force-line-break ($$ expr.stx ...))
-                "]")
-            ...)))
-        (format-template
-         (<> "("
-             (options cond-first-clause
-                      same-line
-                      (<> this-form " " (format-unquote body))
-                      force-line-break
-                      ($$ this-form (nest 1 (format-unquote body))))
-             ")"))
-        ```
-
-    * For `(my-let ([lhs:named rhs:named] ...) body-expr:named ...+)`:
-
-        ```
-        (format-template
-         (<> "("
-             ($$ (<> form " (" (<> "[" lhs.stx " " rhs.stx "]") ... ")")
-                 (nest 1 ($$ body-expr.stx ...)))
-             ")"))
-        ```
-
-2. Customizable combinators should provide some information for forms that don't have
+1. Customizable combinators should provide some information for forms that don't have
    a pretty printing specification (for example, DrRacket's default indentation rules)
 
 ### TODOS:
@@ -361,4 +327,45 @@ DONE - Shift the indentation of the `#(source ...)` block
                     ")")
                 (nest 1 (apply $$ (syntax-e #'(body-expr.stx ...)))))
             ")")
+        ```
+
+6. Implement a simple format template, e.g.
+
+    * For `(my-cond (expr:named ...+) ...)`:
+
+        ```
+        (define body
+          (quasiformat-template
+           ($$
+            (<> "[" (options cond-body-line-break
+                             preserve         (preserve-linebreak expr1.stx expr2.stx ...)
+                             same-line        (<> expr1.stx (~@ " " expr2.stx) ...)
+                             force-line-break ($$ expr1.stx expr2.stx ...))
+                "]")
+            ...)))
+        (define this-form (symbol->string (syntax-e #'form)))
+        (syntax-property
+         (syntax/loc stx (cond [expr1.stx expr2.stx ...] ...))
+         'syncheck:format
+         (quasiformat-template
+          (<> "("
+              (options cond-first-clause
+                       same-line        (<> (unformat this-form) " "
+                                            (format-embed (unformat body)))
+                       force-line-break ($$ (unformat this-form)
+                                            (nest 1 (format-embed (unformat body)))))
+              ")")))
+        ```
+
+    * For `(my-let ([lhs:named rhs:named] ...) body-expr:named ...+)`:
+
+        ```
+        (quasiformat-template
+          (<> "("
+              ($$ (<> (unformat (symbol->string (syntax-e #'form)))
+                      " ("
+                      ($$ (<> "[" lhs.stx " " rhs.stx "]") ...)
+                      ")")
+                  (nest 1 ($$ body-expr.stx ...)))
+              ")"))
         ```
