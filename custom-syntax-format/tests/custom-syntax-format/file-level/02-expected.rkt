@@ -2,17 +2,6 @@
 
 (require custom-syntax-format)
 
-;; comment1
-(writeln
- ;; comment2
- (my-cond [#f "false"]
-          [(and (< 10 5)
-                'okay)
-           "a"]
-          [#t "b"]
-          [else
-           #f]))
-
 (writeln
  (my-cond [#t
            (string-append "hello " #;(s-expr comment)
@@ -21,8 +10,27 @@
           [else 'not-here]))
 
 (writeln
+ (;; a bad comment
+  my-cond
+   ;; cannot stay in the same line with my-cond
+   [#| another comment |# #true
+    "hi comments"
+    ;; at the end
+    ]
+   #;(a commented out clause)
+  [else #|more comments|# "unreachable"]))
+
+(writeln
  (my-cond [(+ 2 3 4
               5)
+           #;(doesnt exist)
+           ;; A disppearing comment
+           #;(other s-expr comment)
+           #|
+    Some
+  indented
+      comment
+           |#
            'whatever
            (string-append "hel"
                           "lo " (my-cond [(+ 6 7
