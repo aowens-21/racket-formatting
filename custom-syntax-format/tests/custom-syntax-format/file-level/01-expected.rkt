@@ -23,6 +23,14 @@
 (writeln
  (my-cond [(+ 2 3 4
               5)
+           #;(doesnt exist)
+           ;; A disppearing comment
+           #;(other s-expr comment)
+           #|
+    Some
+  indented
+      comment
+           |#
            'whatever
            (string-append "hel"
                           "lo " (my-cond [(+ 6 7

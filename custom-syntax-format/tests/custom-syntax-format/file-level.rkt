@@ -17,5 +17,5 @@
                 (with-output-to-string
                   (λ () (dynamic-require file-level-expected.rkt #f))))
 
-  (check-equal? (format-file file-level-conds.rkt)
-                (file->string file-level-expected.rkt)))
+  #;(check-equal? (format-file file-level-conds.rkt)
+                  (file->string file-level-expected.rkt)))
