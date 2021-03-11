@@ -2,7 +2,9 @@
 
 (require custom-syntax-format)
 
+;; comment1
 (writeln
+ ;; comment2
  (my-cond (#f "false") [(and (< 10 5)
                              'okay)
                         "a"] (#t "b") (else
@@ -11,7 +13,8 @@
 
 (writeln
  (my-cond (#t
-           (string-append "hello "
+           (string-append "hello " #;(s-expr comment)
+                   #| comment 3 |#
                           (my-cond (else "world")))) (else 'not-here)))
 
 (writeln
