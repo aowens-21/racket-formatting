@@ -8,22 +8,37 @@
 
 ### What are our goals (for now)?
 
-1. Customizable combinators should provide some information for forms that don't have
-   a pretty printing specification (for example, DrRacket's default indentation rules)
+1. Figure out how expressive our formatting language is by making examples, this will also help
+  illustrate how useful the tool is. Sub-goals:
+
+    - Express different formatting styles for different macros (examples: `->*`, `->i`, `define`)
+
+2. Figure out how the programmers using our formatting language can abstract common pieces from
+  formatting templates they write, and in general work on making formatting programs nicer to write.
+
+    - Make the formatting options less fixed (i.e. our combinator that uses "format-time" information)
+      to inform which formatting styles will be used
 
 ### TODOS:
 
-- Think: racket-format currently includes syntax information from `'disappeared-use`.
-  Do we want to ignore `'disappeared-use` and have an optional opt-in instruction in the
-  formatting language instead?
-    * The macro authors should correctly produce pretty printing annotations,
-      including identifiers that will disappear (e.g. `else` in `cond`).
-      But perhaps manually producing that is inconvenient.
-- Also come up with a combinator that decides whether or not to break lines between elements
+- Come up with a few more examples of macros we'd like to put formatting instructions on. 
+  These should be a little more complex than the `my-cond` and `my-let` examples.
+
+- Have a combinator that uses "format-time" information and uses that to make decisions about
+  how to format a particular part of the macro (ex. If a cond clause has more than X expressions
+  inside it, break lines between the expressions, otherwise put everything on the same line).
+
+- Try to extract common pieces/functionality of the formatting templates as we create more examples,
+  maybe we can use this to build a little common library. This will also help us figure out how to
+  make the formatting language more extensible.
 
 ### Possible Future Works
 
 - The comment information is dropped entirely
+
+- Customizable combinators should provide some information for forms that don't have
+  a pretty printing specification (for example, DrRacket's default indentation rules)
+
 - Handle reading-time indentation, e.g. `@`-expressions. Currently DrRacket's indentation
   engine does not work in the following case.
 
@@ -369,3 +384,4 @@ DONE - Shift the indentation of the `#(source ...)` block
                   (nest 1 ($$ body-expr.stx ...)))
               ")"))
         ```
+
