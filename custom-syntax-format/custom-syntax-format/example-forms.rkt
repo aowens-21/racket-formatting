@@ -1,5 +1,7 @@
 #lang racket/base
 
+(require racket/contract)
+
 (require (for-syntax racket/base
                      racket/sequence
                      syntax/parse
@@ -48,3 +50,8 @@
                    ")")
                (nest 1 ($$ body-expr.stx ...)))
            ")")))]))
+
+(define-syntax (my:->* stx)
+  (syntax-parse stx
+    [(form (mandatory-dom ...) range)
+     (syntax/loc stx (->* (mandatory-dom ...) range))]))

@@ -146,6 +146,23 @@
    (racket-format my-cond-stx.7)
    my-cond-expected.7))
 
+(define my-cond-stx.8
+  #'(my-cond ((> 2 1)
+              #t)
+             (#f 'false)))
+
+(define my-cond-expected.8
+  @string-append{
+ (my-cond [(> 2 1)
+           #t]
+          [#f 'false])
+ })
+
+(module+ test
+  (check-equal?
+   (racket-format my-cond-stx.8)
+   my-cond-expected.8))
+
 (define my-let-stx.1
   #'(my-let ([a 10] [b 5] [c
                        20])
@@ -225,3 +242,34 @@
   (check-equal?
    (racket-format my-let-stx.4)
    my-let-expected.4))
+
+(define my-arrow-star-stx.1
+  #'(my:->* (
+          ) any))
+
+(define my-arrow-star-expected.1
+  @string-append{
+ (my:->* ()
+         any)
+})
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-star-stx.1)
+   my-arrow-star-expected.1))
+
+(define my-arrow-star-stx.2
+  #'(my:->* (number? (or/c #f (listof string?))) (values number? string?)))
+
+(define my-arrow-star-expected.2
+  @string-append{
+ (my:->* (number?
+          (or/c #f (listof string?)))
+         (values number?
+                 string?))
+ })
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-star-stx.2)
+   my-arrow-star-expected.2))
