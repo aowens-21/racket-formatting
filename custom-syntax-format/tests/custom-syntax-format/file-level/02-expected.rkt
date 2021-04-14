@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require custom-syntax-format)
+(require custom-syntax-format/example-forms)
 
 (writeln
  (my-cond [#t

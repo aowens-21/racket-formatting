@@ -1,8 +1,17 @@
 #lang racket/base
 
-(require racket/match)
+(require racket/port
+         racket/match
+         "printing.rkt")
 
 (provide (all-defined-out))
+
+(define (racket-format stx)
+  (with-output-to-string
+    (λ ()
+      (port-count-lines! (current-output-port))
+      (print-formatted
+       (construct-formatting-info stx)))))
 
 (define (extract-name-syntax-maps stx
                                   #:check-disappeared-use? [check-disappeared-use? #f])

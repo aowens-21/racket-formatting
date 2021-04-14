@@ -1,7 +1,8 @@
 #lang at-exp racket/base
 
 (require rackunit
-         custom-syntax-format)
+         custom-syntax-format/syntax
+         custom-syntax-format/example-forms)
 
 (provide (all-defined-out))
 

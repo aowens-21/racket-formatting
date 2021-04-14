@@ -2,6 +2,7 @@
 
 (require rackunit
          custom-syntax-format
+         custom-syntax-format/syntax
          "example-forms.rkt")
 
 (provide (all-defined-out))
