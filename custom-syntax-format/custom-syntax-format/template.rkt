@@ -55,6 +55,9 @@
         #:when (free-identifier=? op #'nest)
         (define depth (syntax-e stx-depth))
         (nest depth (eval-format-template stx-arg))]
+       [(list (? identifier? op) stx-source)
+        #:when (free-identifier=? op #'source)
+        (source stx-source)]
        [(cons (? identifier? op) (cons stx-name stx-options))
         #:when (free-identifier=? op #'options)
         (define name (syntax-e stx-name))

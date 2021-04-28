@@ -243,6 +243,40 @@
    (racket-format my-let-stx.4)
    my-let-expected.4))
 
+(define my-arrow-star-stx.0
+  #'(my:->* (
+          ) number?))
+
+(define my-arrow-star-expected.0
+  @string-append{
+ (my:->* ()
+         number?)
+})
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-star-stx.0)
+   my-arrow-star-expected.0))
+
+(define (is-odd-number? value)
+  (and (integer? value)
+       (odd? value)))
+
+(define my-arrow-star-stx.0.5
+  #'(my:->* (
+          ) is-odd-number?))
+
+(define my-arrow-star-expected.0.5
+  @string-append{
+ (my:->* ()
+         is-odd-number?)
+})
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-star-stx.0.5)
+   my-arrow-star-expected.0.5))
+
 (define my-arrow-star-stx.1
   #'(my:->* (
           ) any))
@@ -259,7 +293,8 @@
    my-arrow-star-expected.1))
 
 (define my-arrow-star-stx.2
-  #'(my:->* (number? (or/c #f (listof string?))) (values number? string?)))
+  #'(my:->* (number? (or/c #f (listof string?))) (values number?
+  string?)))
 
 (define my-arrow-star-expected.2
   @string-append{

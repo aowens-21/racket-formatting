@@ -53,5 +53,34 @@
 
 (define-syntax (my:->* stx)
   (syntax-parse stx
-    [(form (mandatory-dom ...) range)
-     (syntax/loc stx (->* (mandatory-dom ...) range))]))
+    #:literals (values)
+    [(form (mandatory-dom:named ...) ((~and values-lit values) range:named ...))
+     (syntax-property
+      (syntax/loc stx (->* (mandatory-dom ...) (values range ...)))
+      'syncheck:format
+      (quasiformat-template
+       (<> "("
+           (unformat (symbol->string (syntax-e #'form)))
+           " "
+           ($$ (<> "("
+                   ($$ (source mandatory-dom.stx) ...)
+                   ")")
+               (<> "("
+                   (unformat (symbol->string (syntax-e #'values-lit)))
+                   " "
+                   ($$ (source range.stx) ...)
+                   ")"))
+           ")")))]
+    [(form (mandatory-dom:named ...) range:named)
+     (syntax-property
+      (syntax/loc stx (->* (mandatory-dom ...) range))
+      'syncheck:format
+      (quasiformat-template
+       (<> "("
+           (unformat (symbol->string (syntax-e #'form)))
+           " "
+           ($$ (<> "("
+                   ($$ (source mandatory-dom.stx) ...)
+                   ")")
+               (source range.stx))
+           ")")))]))

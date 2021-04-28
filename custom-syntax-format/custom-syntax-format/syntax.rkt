@@ -73,6 +73,8 @@
     [`#(nest ,depth ,element)
      `#(nest ,depth
              ,(recursively-construct-formatting-info table element))]
+    [`#(source ,source ,line ,col ,pos ,span)
+     `#(source ,source ,line ,col ,pos ,span)]
     [`#(options ,name ,options ...)
      `#(options ,name ,@(for/list ([option (in-list options)])
                           (cons (car option)
