@@ -12,6 +12,7 @@
   illustrate how useful the tool is. Sub-goals:
 
     - Express different formatting styles for different macros (examples: `->*`, `->i`, `define`)
+    - Can we compose syntax classes? (e.g. [function headers](https://docs.racket-lang.org/syntax/Library_Syntax_Classes_and_Literal_Sets.html#%28part._.Function_.Headers%29) for `define`)
 
 2. Figure out how the programmers using our formatting language can abstract common pieces from
   formatting templates they write, and in general work on making formatting programs nicer to write.
