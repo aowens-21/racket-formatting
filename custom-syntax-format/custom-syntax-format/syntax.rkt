@@ -73,8 +73,14 @@
     [`#(nest ,depth ,element)
      `#(nest ,depth
              ,(recursively-construct-formatting-info table element))]
-    [`#(source ,source ,line ,col ,pos ,span)
-     `#(source ,source ,line ,col ,pos ,span)]
+    [`#(source/maybe-name ,source ,line ,col ,pos ,span ,name)
+     (cond [(and name
+                 (hash-has-key? table name))
+            (construct-formatting-info-from-syntax
+             table
+             (hash-ref table name `#(source ,source ,line ,col ,pos ,span)))]
+           [else
+            `#(source ,source ,line ,col ,pos ,span)])]
     [`#(options ,name ,options ...)
      `#(options ,name ,@(for/list ([option (in-list options)])
                           (cons (car option)

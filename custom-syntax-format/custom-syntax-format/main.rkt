@@ -30,7 +30,12 @@
        (do-traverse (cdr datum))]
       [(syntax? datum)
        (define name (syntax-property datum 'syncheck:format:name))
-       (when name
+       (when (and name
+                  (syntax-source datum)
+                  (syntax-line datum)
+                  (syntax-column datum)
+                  (syntax-position datum)
+                  (syntax-span datum))
          (hash-set! table name (make-srcloc (syntax-source datum)
                                             (syntax-line datum)
                                             (syntax-column datum)
@@ -47,7 +52,7 @@
               (loop (cdr use))]
              [else (void)])))
        (do-traverse (syntax-e datum))]
-      ;; TODO recursively traverse all compound data
+      ;; TODO recursively traverse all compound data (boxes, etc...)
       [else (void)]))
 
   (do-traverse stx)
@@ -102,7 +107,17 @@
              ,name
              ,@(for/list ([option (in-list options)])
                  (cons (car option)
-                       (recursively-construct-formatting-info (cdr option)))))]))]))
+                       (recursively-construct-formatting-info (cdr option)))))]
+         [`#(source/maybe-name ,source ,line ,col ,pos ,span ,name)
+          (cond
+            [(and name
+                  (hash-has-key? name-to-srcloc-map name))
+             (construct-formatting-info-from-location
+              name-to-srcloc-map
+              loc-info-map
+              (hash-ref name-to-srcloc-map name))]
+            [else
+             `#(source ,source ,line ,col ,pos ,span)])]))]))
 
 ;; format-file : source-file config-file dest-file
 ;;=>
@@ -131,7 +146,7 @@
   (define expanded-stx
     (parameterize ([current-namespace ns])
       (expand stx)))
-
+  
   (define loc-info-map
     (build-loc-info-map expanded-stx))
 

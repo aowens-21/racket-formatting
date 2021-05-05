@@ -12,6 +12,9 @@
 (define-runtime-path file-level-02-comments.rkt "file-level/02-comments.rkt")
 (define-runtime-path file-level-02-expected.rkt "file-level/02-expected.rkt")
 
+(define-runtime-path file-level-03-nested-contracts.rkt "file-level/03-nested-contracts.rkt")
+(define-runtime-path file-level-03-expected.rkt "file-level/03-expected.rkt")
+
 (module+ test
   (require rackunit)
 
@@ -27,6 +30,14 @@
                   (λ () (dynamic-require file-level-02-comments.rkt #f)))
                 (with-output-to-string
                   (λ () (dynamic-require file-level-02-expected.rkt #f))))
+
+  (check-equal? (with-output-to-string
+                  (λ () (dynamic-require file-level-03-nested-contracts.rkt #f)))
+                (with-output-to-string
+                  (λ () (dynamic-require file-level-03-expected.rkt #f))))
+
+  (check-equal? (format-file file-level-03-nested-contracts.rkt)
+                (file->string file-level-03-expected.rkt))
 
   ;; fails
   #;(check-equal? (format-file file-level-02-comments.rkt)

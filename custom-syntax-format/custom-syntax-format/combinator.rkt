@@ -42,12 +42,13 @@
 (define (nest indent-depth elem)
   `#(nest ,indent-depth ,(coerce-format elem)))
 
-(define (source stx-source)
-  `#(source ,(syntax-source stx-source)
-            ,(syntax-line stx-source)
-            ,(syntax-column stx-source)
-            ,(syntax-position stx-source)
-            ,(syntax-span stx-source)))
+(define (source stx-source [name #f])
+  `#(source/maybe-name ,(syntax-source stx-source)
+                       ,(syntax-line stx-source)
+                       ,(syntax-column stx-source)
+                       ,(syntax-position stx-source)
+                       ,(syntax-span stx-source)
+                       ,name))
 
 (define (options name . opts)
   `#(options

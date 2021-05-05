@@ -28,7 +28,7 @@
 (define (eval-format-template stx)
   (cond
     [(syntax-property stx 'syncheck:format:name)
-     (syntax-property stx 'syncheck:format:name)]
+     (source stx (syntax-property stx 'syncheck:format:name))]
     [else
      (match (syntax-e stx)
        ;; datum

@@ -55,32 +55,38 @@
   (syntax-parse stx
     #:literals (values)
     [(form (mandatory-dom:named ...) ((~and values-lit values) range:named ...))
+     (define expanded->* (local-expand (syntax/loc stx (->* (mandatory-dom.stx ...) (values range.stx ...)))
+                                       (syntax-local-context)
+                                       #f))
      (syntax-property
-      (syntax/loc stx (->* (mandatory-dom ...) (values range ...)))
+      (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
       'syncheck:format
       (quasiformat-template
        (<> "("
            (unformat (symbol->string (syntax-e #'form)))
            " "
            ($$ (<> "("
-                   ($$ (source mandatory-dom.stx) ...)
+                   ($$ mandatory-dom.stx ...)
                    ")")
                (<> "("
                    (unformat (symbol->string (syntax-e #'values-lit)))
                    " "
-                   ($$ (source range.stx) ...)
+                   ($$ range.stx ...)
                    ")"))
            ")")))]
     [(form (mandatory-dom:named ...) range:named)
+     (define expanded->* (local-expand (syntax/loc stx (->* (mandatory-dom.stx ...) range.stx))
+                                       (syntax-local-context)
+                                       #f))
      (syntax-property
-      (syntax/loc stx (->* (mandatory-dom ...) range))
+      (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
       'syncheck:format
       (quasiformat-template
        (<> "("
            (unformat (symbol->string (syntax-e #'form)))
            " "
            ($$ (<> "("
-                   ($$ (source mandatory-dom.stx) ...)
+                   ($$ mandatory-dom.stx ...)
                    ")")
-               (source range.stx))
+               range.stx)
            ")")))]))
