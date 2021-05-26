@@ -51,13 +51,45 @@
                (nest 1 ($$ body-expr.stx ...)))
            ")")))]))
 
+(begin-for-syntax
+  (define-syntax-class arrow-contract-range
+    #:literals (values any)
+    #:attributes (stx format)
+    #:commit
+    (pattern ((~and values-literal values) values-range-ctc:named ...)
+             #:attr stx
+             (syntax/loc this-syntax
+               (values-literal values-range-ctc.stx ...))
+             #:attr format
+             (quasiformat-template
+              (<> "("
+                  (unformat (symbol->string (syntax-e #'values-literal)))
+                  " "
+                  ($$ values-range-ctc.stx ...)
+                  ")")))
+    (pattern (~and any-literal:named any)
+             #:attr stx    #'any-literal.stx
+             #:attr format (quasiformat-template
+                            any-literal.stx))
+    (pattern range-ctc:named
+             #:attr stx    #'range-ctc.stx
+             #:attr format (quasiformat-template
+                            range-ctc.stx)))
+  )
+
 (define-syntax (my:->* stx)
   (syntax-parse stx
     #:literals (values)
-    [(form (mandatory-dom:named ...) ((~and values-lit values) range:named ...))
-     (define expanded->* (local-expand (syntax/loc stx (->* (mandatory-dom.stx ...) (values range.stx ...)))
-                                       (syntax-local-context)
-                                       #f))
+    [(form (mandatory-dom:named ...)
+           (~optional (optional-dom:named ...))
+           range:arrow-contract-range)
+     (define expanded->*
+       (local-expand (quasisyntax/loc stx
+                       (->* (mandatory-dom.stx ...)
+                            (~? (optional-dom.stx ...))
+                            range.stx))
+                     (syntax-local-context)
+                     #f))
      (syntax-property
       (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
       'syncheck:format
@@ -68,25 +100,9 @@
            ($$ (<> "("
                    ($$ mandatory-dom.stx ...)
                    ")")
-               (<> "("
-                   (unformat (symbol->string (syntax-e #'values-lit)))
-                   " "
-                   ($$ range.stx ...)
-                   ")"))
-           ")")))]
-    [(form (mandatory-dom:named ...) range:named)
-     (define expanded->* (local-expand (syntax/loc stx (->* (mandatory-dom.stx ...) range.stx))
-                                       (syntax-local-context)
-                                       #f))
-     (syntax-property
-      (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
-      'syncheck:format
-      (quasiformat-template
-       (<> "("
-           (unformat (symbol->string (syntax-e #'form)))
-           " "
-           ($$ (<> "("
-                   ($$ mandatory-dom.stx ...)
-                   ")")
-               range.stx)
+               (~?
+                (<> "("
+                    ($$ optional-dom.stx ...)
+                    ")"))
+               (format-embed (unformat (attribute range.format))))
            ")")))]))

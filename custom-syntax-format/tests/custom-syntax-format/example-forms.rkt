@@ -328,3 +328,26 @@
   (check-equal?
    (racket-format my-arrow-star-stx.3)
    my-arrow-star-expected.3))
+
+(define my-arrow-star-stx.4
+  #'(my:->* (number? (->
+      any)) ((or/c #f (listof string?)) (->
+                                            any)) (values number?
+  string?)))
+
+(define my-arrow-star-expected.4
+  @string-append{
+ (my:->* (number?
+          (->
+ any))
+         ((or/c #f (listof string?))
+          (->
+              any))
+         (values number?
+                 string?))
+})
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-star-stx.4)
+   my-arrow-star-expected.4))
