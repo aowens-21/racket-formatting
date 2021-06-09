@@ -351,3 +351,77 @@
   (check-equal?
    (racket-format my-arrow-star-stx.4)
    my-arrow-star-expected.4))
+
+(define my-arrow-stx.0
+  #'(my:-> integer? integer? boolean?))
+
+(define my-arrow-expected.0
+  @string-append{
+ (my:-> integer? integer? boolean?)
+ })
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-stx.0)
+   my-arrow-expected.0))
+
+(define my-arrow-stx.1
+  #'(my:-> integer? (values any/c boolean?)))
+
+(define my-arrow-expected.1
+  @string-append{
+ (my:-> integer?
+        (values any/c
+                boolean?))
+ })
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-stx.1)
+   my-arrow-expected.1))
+
+(define my-arrow-stx.2
+  #'(my:-> (or/c 'apple 'orange 'pear 'cherry 'lemon 'pineapple) integer?))
+
+(define my-arrow-expected.2
+  @string-append{
+ (my:-> (or/c 'apple 'orange 'pear 'cherry 'lemon 'pineapple)
+        integer?)
+ })
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-stx.2)
+   my-arrow-expected.2))
+
+(define my-arrow-stx.3
+  #'(my:-> (my:-> (or/c 'apple 'orange 'pear 'cherry 'lemon 'pineapple) integer?)
+           integer?))
+
+(define my-arrow-expected.3
+  @string-append{
+ (my:-> (my:-> (or/c 'apple 'orange 'pear 'cherry 'lemon 'pineapple)
+               integer?)
+        integer?)
+ })
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-stx.3)
+   my-arrow-expected.3))
+
+(define my-arrow-stx.4
+  #'(my:-> string? (or/c 'apple 'orange) (or/c 'lemon 'pineapple) integer?))
+
+(define my-arrow-expected.4
+  @string-append{
+ (my:-> string?
+        (or/c 'apple 'orange)
+        (or/c 'lemon 'pineapple)
+        integer?)
+ })
+
+(module+ test
+  (check-equal?
+   (racket-format my-arrow-stx.4)
+   my-arrow-expected.4))

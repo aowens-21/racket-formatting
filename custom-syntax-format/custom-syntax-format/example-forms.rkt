@@ -79,7 +79,6 @@
 
 (define-syntax (my:->* stx)
   (syntax-parse stx
-    #:literals (values)
     [(form (mandatory-dom:named ...)
            (~optional (optional-dom:named ...))
            range:arrow-contract-range)
@@ -105,4 +104,25 @@
                     ($$ optional-dom.stx ...)
                     ")"))
                (format-embed (unformat (attribute range.format))))
+           ")")))]))
+
+(define-syntax (my:-> stx)
+  (syntax-parse stx
+    #:literals (values)
+    [(form dom:named ... range:arrow-contract-range)
+     (define expanded->*
+       (local-expand (quasisyntax/loc stx
+                       (-> dom.stx ... range.stx))
+                     (syntax-local-context)
+                     #f))
+     (syntax-property
+      (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
+      'syncheck:format
+      (quasiformat-template
+       (<> "("
+           (unformat (symbol->string (syntax-e #'form)))
+           " "
+           (preserve-linebreak
+            dom.stx ...
+            (format-embed (unformat (attribute range.format))))
            ")")))]))
