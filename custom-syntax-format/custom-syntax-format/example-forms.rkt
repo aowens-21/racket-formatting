@@ -27,14 +27,15 @@
      (syntax-property
       (syntax/loc stx (cond [expr1.stx expr2.stx ...] ...))
       'syncheck:format
-      (quasiformat-template
-       (<> "("
-           (options cond-first-clause
-                    same-line        (<> (unformat this-form) " "
-                                         (format-embed (unformat body)))
-                    force-line-break ($$ (unformat this-form)
-                                         (nest 1 (format-embed (unformat body)))))
-           ")")))]))
+      (eval-format-template
+       (quasiformat-template
+        (<> "("
+            (options cond-first-clause
+                     same-line        (<> (unformat this-form) " "
+                                          (format-embed (unformat body)))
+                     force-line-break ($$ (unformat this-form)
+                                          (nest 1 (format-embed (unformat body)))))
+            ")"))))]))
 
 (define-syntax (my-let stx)
   (syntax-parse stx
@@ -42,14 +43,15 @@
      (syntax-property
       (syntax/loc stx (let ([lhs.stx rhs.stx] ...) body-expr.stx ...))
       'syncheck:format
-      (quasiformat-template
-       (<> "("
-           ($$ (<> (unformat (symbol->string (syntax-e #'form)))
-                   " ("
-                   ($$ (<> "[" lhs.stx " " rhs.stx "]") ...)
-                   ")")
-               (nest 1 ($$ body-expr.stx ...)))
-           ")")))]))
+      (eval-format-template
+       (quasiformat-template
+        (<> "("
+            ($$ (<> (unformat (symbol->string (syntax-e #'form)))
+                    " ("
+                    ($$ (<> "[" lhs.stx " " rhs.stx "]") ...)
+                    ")")
+                (nest 1 ($$ body-expr.stx ...)))
+            ")"))))]))
 
 (begin-for-syntax
   (define-syntax-class arrow-contract-range
@@ -92,19 +94,20 @@
      (syntax-property
       (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
       'syncheck:format
-      (quasiformat-template
-       (<> "("
-           (unformat (symbol->string (syntax-e #'form)))
-           " "
-           ($$ (<> "("
-                   ($$ mandatory-dom.stx ...)
-                   ")")
-               (~?
-                (<> "("
-                    ($$ optional-dom.stx ...)
-                    ")"))
-               (format-embed (unformat (attribute range.format))))
-           ")")))]))
+      (eval-format-template
+       (quasiformat-template
+        (<> "("
+            (unformat (symbol->string (syntax-e #'form)))
+            " "
+            ($$ (<> "("
+                    ($$ mandatory-dom.stx ...)
+                    ")")
+                (~?
+                 (<> "("
+                     ($$ optional-dom.stx ...)
+                     ")"))
+                (unformat (attribute range.format)))
+            ")"))))]))
 
 (define-syntax (my:-> stx)
   (syntax-parse stx
@@ -118,11 +121,12 @@
      (syntax-property
       (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
       'syncheck:format
-      (quasiformat-template
-       (<> "("
-           (unformat (symbol->string (syntax-e #'form)))
-           " "
-           (preserve-linebreak
-            dom.stx ...
-            (format-embed (unformat (attribute range.format))))
-           ")")))]))
+      (eval-format-template
+       (quasiformat-template
+        (<> "("
+            (unformat (symbol->string (syntax-e #'form)))
+            " "
+            (preserve-linebreak
+             dom.stx ...
+             (unformat (attribute range.format)))
+            ")"))))]))

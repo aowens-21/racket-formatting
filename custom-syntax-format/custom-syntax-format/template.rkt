@@ -9,11 +9,6 @@
 (provide (all-defined-out)
          (rename-out [unsyntax unformat]))
 
-(define-syntax (format-embed stx)
-  (raise-syntax-error 'format-embed
-                      "not in [quasi]formate-template"
-                      stx))
-
 (define (format-datum? v)
   (or (symbol? v)
       (string? v)))
@@ -37,10 +32,6 @@
        [(list (? identifier? form) stx-arg)
         #:when (free-identifier=? form #'quote)
         (eval-format-datum (syntax-e stx-arg))]
-       ;; embedded formats
-       [(list (? identifier? form) stx-format)
-        #:when (free-identifier=? form #'format-embed)
-        (syntax->datum stx-format)]
        ;; combinators
        [(cons (? identifier? op) stx-args)
         #:when (free-identifier=? op #'<>)
@@ -72,42 +63,48 @@
   (syntax-parse stx
     [(_ format:expr)
      (syntax/loc stx
-       (eval-format-template
-        (quasisyntax format)))]))
+       (quasisyntax format))]))
 
 (module+ test
   (require (submod "..")
            rackunit)
 
   (check-equal?
-   (quasiformat-template
-    (<> name1 "literal2"
-        ($$ "[]"
-            (preserve-linebreak "[]" 'answer))))
+   (eval-format-template
+    (quasiformat-template
+     (<> name1 "literal2"
+         ($$ "[]"
+             (preserve-linebreak "[]" 'answer)))))
    (<> 'name1 "literal2"
        ($$ "[]"
            (preserve-linebreak "[]" 'answer))))
 
   (check-equal?
-   (quasiformat-template
-    (nest 5 "okay"))
+   (eval-format-template
+    (quasiformat-template
+     (nest 5 "okay")))
    (nest 5 "okay"))
 
   (check-equal?
-   (quasiformat-template
-    (options config-name opt1 "A" opt2 name opt3 ($$ "okay")))
+   (eval-format-template
+    (quasiformat-template
+     (options config-name opt1 "A" opt2 name opt3 ($$ "okay"))))
    (options 'config-name
             'opt1 "A"
             'opt2 'name
             'opt3 ($$ "okay")))
 
   (check-equal?
-   (quasiformat-template
-    (unformat (string-append "hello " "world")))
+   (eval-format-template
+    (quasiformat-template
+     (unformat (string-append "hello " "world"))))
    "hello world")
 
   (check-equal?
-   (quasiformat-template
-    (<> (format-embed (unformat (nest 5 "okay")))))
+   (eval-format-template
+    (quasiformat-template
+     (<> (unformat
+          (quasiformat-template
+           (nest 5 "okay"))))))
    (<> (nest 5 "okay")))
   )
