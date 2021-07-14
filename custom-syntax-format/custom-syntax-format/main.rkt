@@ -10,7 +10,9 @@
          current-racket-format-print-source
          default-racket-format-print-source)
 
+;; locations: source path × source position
 (struct format-loc (source pos) #:transparent)
+;; info: format instructions and the complete source locations
 (struct loc-info (format srcloc) #:transparent)
 
 (define (srcloc->loc srcloc)
@@ -161,20 +163,29 @@
   (define names-to-srcloc-map
     (extract-name-srcloc-maps expanded-stx
                               #:check-disappeared-use? #t))
-  (define loc-info-with-names-map
+  ;; Build maps from locations to temporary format instructions
+  ;;   locations: source path × source position
+  ;;   temporary format instructions: format instructions with names (from
+  ;;   syncheck:format:name) where the names are placeholders for the actual,
+  ;;   recursive part of the format instructions
+  (define loc-info-map/format-instructions-with-names
     (build-loc-info-with-names-map expanded-stx))
+  ;; substitute the actual (recursive) format instructions for the names
+  ;; in the temporary map
   (define loc-info-map
-    (for/hash ([(loc info) (in-hash loc-info-with-names-map)])
+    (for/hash ([(loc info) (in-hash loc-info-map/format-instructions-with-names)])
       (values
        loc
        (loc-info
         (construct-formatting-info-from-location
          names-to-srcloc-map
-         loc-info-with-names-map
+         loc-info-map/format-instructions-with-names
          (loc-info-srcloc info))
         (loc-info-srcloc info)))))
   loc-info-map)
 
+;; traverse the entire syntax object and build a map from locations
+;; to temporary format instructions (stored in syncheck:format)
 (define (build-loc-info-with-names-map expanded-stx)
   (define loc-info-with-names-map (make-hash))
   (let loop ([stx expanded-stx])

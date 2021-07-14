@@ -18,18 +18,6 @@
                                        'syncheck:format:name
                                        (attribute name))))
 
-(define-syntax-class recur-named
-  #:attributes (stx)
-  #:commit
-  (pattern _
-           #:when (syntax-property this-syntax 'syncheck:format:name)
-           #:attr stx this-syntax)
-  (pattern (subform:recur-named ...)
-           #:attr stx (syntax/loc this-syntax
-                        (subform.stx ...)))
-  (pattern atomic:named
-           #:attr stx #'atomic.stx))
-
 (define (coerce-format value)
   (match value
     [(? syntax? named-stx)
