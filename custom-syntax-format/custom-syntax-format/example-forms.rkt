@@ -17,11 +17,7 @@
      (define body
        (quasiformat-template
         ($$
-         (<> "[" (options cond-body-line-break
-                          preserve         (preserve-linebreak expr1.stx expr2.stx ...)
-                          same-line        (<> expr1.stx (~@ " " expr2.stx) ...)
-                          force-line-break ($$ expr1.stx expr2.stx ...))
-             "]")
+         (<> "[" (preserve-linebreak expr1.stx expr2.stx ...) "]")
          ...)))
      (define this-form (symbol->string (syntax-e #'form)))
      (syntax-property
@@ -30,11 +26,9 @@
       (eval-format-template
        (quasiformat-template
         (<> "("
-            (options cond-first-clause
-                     same-line        (<> (unformat this-form) " "
-                                          (format-embed (unformat body)))
-                     force-line-break ($$ (unformat this-form)
-                                          (nest 1 (format-embed (unformat body)))))
+            (unformat this-form)
+            " "
+            (unformat body)
             ")"))))]))
 
 (define-syntax (my-let stx)

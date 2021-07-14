@@ -1,4 +1,4 @@
 #lang info
 
 (define test-omit-paths
-  (list "file-level"))
+  (list "file-level" "customization.rkt"))
