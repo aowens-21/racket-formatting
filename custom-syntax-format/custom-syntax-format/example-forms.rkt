@@ -78,15 +78,11 @@
     [(form (mandatory-dom:named ...)
            (~optional (optional-dom:named ...))
            range:arrow-contract-range)
-     (define expanded->*
-       (local-expand (quasisyntax/loc stx
-                       (->* (mandatory-dom.stx ...)
-                            (~? (optional-dom.stx ...))
-                            range.stx))
-                     (syntax-local-context)
-                     #f))
      (syntax-property
-      (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
+      (syntax/loc stx
+        (->* (mandatory-dom.stx ...)
+             (~? (optional-dom.stx ...))
+             range.stx))
       'syncheck:format
       (eval-format-template
        (quasiformat-template
@@ -107,13 +103,9 @@
   (syntax-parse stx
     #:literals (values)
     [(form dom:named ... range:arrow-contract-range)
-     (define expanded->*
-       (local-expand (quasisyntax/loc stx
-                       (-> dom.stx ... range.stx))
-                     (syntax-local-context)
-                     #f))
      (syntax-property
-      (datum->syntax expanded->* (syntax-e expanded->*) stx expanded->*)
+      (syntax/loc stx
+        (-> dom.stx ... range.stx))
       'syncheck:format
       (eval-format-template
        (quasiformat-template
