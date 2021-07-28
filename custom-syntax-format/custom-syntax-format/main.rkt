@@ -225,6 +225,14 @@
          span
          #:shift-amount [shift-amount 0])
   (define end-pos (+ start-pos span))
+  (fprintf real-output-port
+           "print-file-with-format-in-range: scanning & copying chars in [~a, ~a) at col ~a\n"
+           start-pos
+           end-pos
+           (get-current-col))
+  (set! copy-inst
+        (cons `(start-copy ,start-pos)
+              copy-inst))
   (let copy-loop! ([pos start-pos])
     (when (< pos end-pos)
       (define line-finish-pos
@@ -242,8 +250,25 @@
                 (define loc-info-at-pos (hash-ref loc-info-map loc))
                 (define span (srcloc-span (loc-info-srcloc loc-info-at-pos)))
                 (define next-pos (+ pos span))
+                (fprintf real-output-port
+                         "format instruction covering [~a, ~a)\n    "
+                         pos
+                         next-pos)
+                (pretty-write
+                 (loc-info-format loc-info-at-pos)
+                 real-output-port)
+                (set! copy-inst
+                      (cons `(stop-copy ,pos)
+                            copy-inst))
                 (indent-at-current-col
                  (λ () (print-formatted (loc-info-format loc-info-at-pos))))
+                (fprintf real-output-port
+                         "format instruction covering [~a, ~a): finished\n"
+                         pos
+                         next-pos)
+                (set! copy-inst
+                      (cons `(start-copy ,next-pos)
+                            copy-inst))
                 (copy-current-line! next-pos)]
                [else
                 (define ch (string-ref content (- pos 1)))
@@ -289,15 +314,30 @@
                 count])))
          (parameterize ([format-indentation
                          (max 0 (+ shift-amount space-count))])
+           (fprintf real-output-port
+                    "print-file-with-format-in-range: newline in [~a, ~a)\n"
+                    start-pos
+                    end-pos)
            (print-formatted-newline))
          ;; skip the #\newline character and the leading spaces
          (copy-loop! (+ line-finish-pos 1 space-count))]
         [else
-         (copy-loop! line-finish-pos)]))))
+         (copy-loop! line-finish-pos)])))
+  (set! copy-inst
+        (cons `(stop-copy ,end-pos)
+              copy-inst))
+  (fprintf real-output-port
+           "print-file-with-format-in-range: completed; range was [~a, ~a)\n"
+           start-pos
+           end-pos))
 
+(define real-output-port
+  (current-output-port))
+(define copy-inst '())
 (define (print-file-with-format filename loc-info-map)
   (define file-content
     (file->string filename))
+  (set! copy-inst '())
 
   (define old-print-source (current-racket-format-print-source))
   (define (print-source-with-format srcloc)
@@ -331,4 +371,5 @@
      file-content
      loc-info-map
      1
-     (string-length file-content))))
+     (string-length file-content)))
+  (reverse copy-inst))

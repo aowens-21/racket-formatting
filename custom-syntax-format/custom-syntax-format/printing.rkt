@@ -15,6 +15,8 @@
 (define format-columns (make-parameter (pretty-print-columns)))
 
 (define (print-formatted-newline)
+  (eprintf "print-formatted-newline: newline + ~a spaces\n"
+           (format-indentation))
   (newline)
   (for ([i (in-range (format-indentation))])
     (write-char #\space)))
@@ -31,7 +33,8 @@
     (parameterize ([format-indentation
                     (max 0 (+ shift-amount space-count-at-start))])
       (when (> idx 0)
-        (print-formatted-newline))
+        (parameterize ([current-error-port (open-output-nowhere)])
+          (print-formatted-newline)))
       (write-string (substring a-line space-count-at-start)))))
 
 (define (default-racket-format-print-source srcloc)
@@ -41,6 +44,11 @@
   (define col (srcloc-column srcloc))
   (indent-at-current-col
    (lambda ()
+     (eprintf "default-racket-format-print-source: current col = ~a, shift amount = ~a, pos = [~a, ~a)\n"
+              (get-current-col)
+              (- (format-indentation) col)
+                 (sub1 pos)
+                 (sub1 (+ pos span)))
      (write-string/shift-indentation
       ;; Position and line locations are numbered from 1;
       (substring (file->string source)
@@ -58,8 +66,14 @@
 (define (print-formatted pp-info)
   (match pp-info
     [(? string? s)
+     (eprintf "print string ~s\n" s)
      (write-string s)]
     [`#(source ,source ,line ,col ,pos ,span)
+     (eprintf "source ~a:~a, pos = [~a, ~a)\n"
+              line
+              col
+              pos
+              (+ pos span))
      ((current-racket-format-print-source)
       (make-srcloc source
                    line
@@ -67,9 +81,11 @@
                    pos
                    span))]
     [`#(<> ,elements ...)
+     (eprintf "<>\n")
      (for ([(element idx) (in-indexed elements)])
        (print-formatted element))]
     [`#($$ ,element0 ,elements ...)
+     (eprintf "$$: indent at ~a\n" (get-current-col))
      (indent-at-current-col
       (lambda ()
         (print-formatted element0)
@@ -81,6 +97,7 @@
     [`#(preserve-linebreak
         ,(and element0 `#(source ,source0 ,line0 ,col0 ,pos0 ,span0))
         ,(and elements `#(source ,source ,line ,col ,pos ,span)) ...)
+     (eprintf "preserve-linebreak: indent at ~a\n" (get-current-col))
      (indent-at-current-col
       (lambda ()
         (define previous-line-no (get-current-line-number))
@@ -91,6 +108,7 @@
                    [element (in-list elements)])
           (cond
             [(> current-line-number (+ previous-line-number previous-line-span))
+             (eprintf "preserve-linebreak: different line; ")
              (print-formatted-newline)]
             [else
              (write-char #\space)])
@@ -105,6 +123,9 @@
     [`#(nest ,(? exact-integer? depth) ,element)
      (for ([i (in-range depth)])
        (write-char #\space))
+     (eprintf "nest: print ~a spaces; set the indentation to ~a\n"
+              depth
+              (get-current-col))
      (indent-at-current-col
       (lambda ()
         (print-formatted element)))]
@@ -133,6 +154,11 @@
            (cond
              [<= max-column (format-columns)])])
         )
+
+(define (get-current-col)
+  (define-values (line col pos)
+    (port-next-location (current-output-port)))
+  col)
 
 (define (indent-at-current-col proc)
   (define-values (line col pos)
