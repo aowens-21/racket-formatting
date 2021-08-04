@@ -130,7 +130,7 @@
 
 (define-namespace-anchor here-namespace-anchor)
 
-(define (format-file filename output-port)
+(define (format-file filename)
   (with-output-to-string
     (λ ()
       (do-format-file filename (current-output-port)))))
