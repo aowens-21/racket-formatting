@@ -130,7 +130,39 @@
 
 (define-namespace-anchor here-namespace-anchor)
 
-(define (format-file filename)
+(define (format-file filename output-port)
+  (with-output-to-string
+    (λ ()
+      (do-format-file filename (current-output-port)))))
+
+(define (get-format-instructions filename)
+  (define format-insts '())
+  (parameterize ([format-write-char
+                  (λ (ch . args)
+                    (set! format-insts
+                          (cons `(write-string ,(string ch))
+                                format-insts))
+                    (apply write-char ch args))]
+                 [format-write-string
+                  (λ (str . args)
+                    (set! format-insts
+                          (cons `(write-string ,str)
+                                format-insts))
+                    (apply write-string str args))]
+                 [start-copy
+                  (λ (pos)
+                    (set! format-insts
+                          (cons `(start-copy ,pos)
+                                format-insts)))]
+                 [stop-copy
+                  (λ (pos)
+                    (set! format-insts
+                          (cons `(stop-copy ,pos)
+                                format-insts)))])
+    (do-format-file filename (open-output-nowhere)))
+  (reverse format-insts))
+
+(define (do-format-file filename output-port)
   (define stx
     (call-with-input-file filename
       (λ (in)
@@ -148,16 +180,16 @@
   (define expanded-stx
     (parameterize ([current-namespace ns])
       (expand stx)))
-  
+
   (define loc-info-map
     (build-loc-info-map expanded-stx))
 
-  (with-output-to-string
-    (λ ()
-      (port-count-lines! (current-output-port))
-      (print-file-with-format
-       filename
-       loc-info-map))))
+  (port-count-lines! output-port)
+  (parameterize ([current-output-port output-port])
+    (print-file-with-format
+     filename
+     (file->string filename)
+     loc-info-map)))
 
 (define (build-loc-info-map expanded-stx)
   (define names-to-srcloc-map
@@ -217,6 +249,13 @@
            (loop (syntax-e stx))]))
   loc-info-with-names-map)
 
+(define start-copy (make-parameter void))
+(define stop-copy (make-parameter void))
+
+;; Conceptually, the start-pos is the start position in the
+;; source location. Therefore it starts counting from 1.
+;;
+;; The span is the length of the input.
 (define (print-file-with-format-in-range
          filename
          content
@@ -224,15 +263,10 @@
          start-pos
          span
          #:shift-amount [shift-amount 0])
+  ;; end-pos is exclusive. Either the character at end-pos should not be
+  ;; processed, or end-pos may be one over the valid positions.
   (define end-pos (+ start-pos span))
-  (fprintf real-output-port
-           "print-file-with-format-in-range: scanning & copying chars in [~a, ~a) at col ~a\n"
-           start-pos
-           end-pos
-           (get-current-col))
-  (set! copy-inst
-        (cons `(start-copy ,start-pos)
-              copy-inst))
+  ((start-copy) start-pos)
   (let copy-loop! ([pos start-pos])
     (when (< pos end-pos)
       (define line-finish-pos
@@ -250,25 +284,10 @@
                 (define loc-info-at-pos (hash-ref loc-info-map loc))
                 (define span (srcloc-span (loc-info-srcloc loc-info-at-pos)))
                 (define next-pos (+ pos span))
-                (fprintf real-output-port
-                         "format instruction covering [~a, ~a)\n    "
-                         pos
-                         next-pos)
-                (pretty-write
-                 (loc-info-format loc-info-at-pos)
-                 real-output-port)
-                (set! copy-inst
-                      (cons `(stop-copy ,pos)
-                            copy-inst))
+                ((stop-copy) pos)
                 (indent-at-current-col
                  (λ () (print-formatted (loc-info-format loc-info-at-pos))))
-                (fprintf real-output-port
-                         "format instruction covering [~a, ~a): finished\n"
-                         pos
-                         next-pos)
-                (set! copy-inst
-                      (cons `(start-copy ,next-pos)
-                            copy-inst))
+                ((start-copy) next-pos)
                 (copy-current-line! next-pos)]
                [else
                 (define ch (string-ref content (- pos 1)))
@@ -282,7 +301,7 @@
 
            ........\n  <- line-finish-pos points to the #\newline character
            .....................|ABCD|(my-cond ...)EFGH
-           ^                    |   1. loc with format isntruction, or
+           ^                    |   1. loc with format instruction, or
            line-finish-pos + 1  |   2. newline or other chars
            |
            ~~~~~~~~~~~ space-count
@@ -314,30 +333,16 @@
                 count])))
          (parameterize ([format-indentation
                          (max 0 (+ shift-amount space-count))])
-           (fprintf real-output-port
-                    "print-file-with-format-in-range: newline in [~a, ~a)\n"
-                    start-pos
-                    end-pos)
-           (print-formatted-newline))
+           ((stop-copy) line-finish-pos)
+           (print-formatted-newline)
+           ((start-copy) (+ line-finish-pos 1 space-count)))
          ;; skip the #\newline character and the leading spaces
          (copy-loop! (+ line-finish-pos 1 space-count))]
         [else
          (copy-loop! line-finish-pos)])))
-  (set! copy-inst
-        (cons `(stop-copy ,end-pos)
-              copy-inst))
-  (fprintf real-output-port
-           "print-file-with-format-in-range: completed; range was [~a, ~a)\n"
-           start-pos
-           end-pos))
+  ((stop-copy) end-pos))
 
-(define real-output-port
-  (current-output-port))
-(define copy-inst '())
-(define (print-file-with-format filename loc-info-map)
-  (define file-content
-    (file->string filename))
-  (set! copy-inst '())
+(define (print-file-with-format filename file-content loc-info-map)
 
   (define old-print-source (current-racket-format-print-source))
   (define (print-source-with-format srcloc)
@@ -371,5 +376,4 @@
      file-content
      loc-info-map
      1
-     (string-length file-content)))
-  (reverse copy-inst))
+     (string-length file-content))))

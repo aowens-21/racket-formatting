@@ -13,13 +13,13 @@
 
 (define format-indentation (make-parameter 0))
 (define format-columns (make-parameter (pretty-print-columns)))
+(define format-write-char (make-parameter write-char))
+(define format-write-string (make-parameter write-string))
 
 (define (print-formatted-newline)
-  (eprintf "print-formatted-newline: newline + ~a spaces\n"
-           (format-indentation))
-  (newline)
+  ((format-write-char) #\newline)
   (for ([i (in-range (format-indentation))])
-    (write-char #\space)))
+    ((format-write-char) #\space)))
 
 ;; FIXME handle spaces
 (define (write-string/shift-indentation str shift-amount)
@@ -35,7 +35,7 @@
       (when (> idx 0)
         (parameterize ([current-error-port (open-output-nowhere)])
           (print-formatted-newline)))
-      (write-string (substring a-line space-count-at-start)))))
+      ((format-write-string) (substring a-line space-count-at-start)))))
 
 (define (default-racket-format-print-source srcloc)
   (define source (srcloc-source srcloc))
@@ -44,11 +44,6 @@
   (define col (srcloc-column srcloc))
   (indent-at-current-col
    (lambda ()
-     (eprintf "default-racket-format-print-source: current col = ~a, shift amount = ~a, pos = [~a, ~a)\n"
-              (get-current-col)
-              (- (format-indentation) col)
-                 (sub1 pos)
-                 (sub1 (+ pos span)))
      (write-string/shift-indentation
       ;; Position and line locations are numbered from 1;
       (substring (file->string source)
@@ -66,14 +61,8 @@
 (define (print-formatted pp-info)
   (match pp-info
     [(? string? s)
-     (eprintf "print string ~s\n" s)
-     (write-string s)]
+     ((format-write-string) s)]
     [`#(source ,source ,line ,col ,pos ,span)
-     (eprintf "source ~a:~a, pos = [~a, ~a)\n"
-              line
-              col
-              pos
-              (+ pos span))
      ((current-racket-format-print-source)
       (make-srcloc source
                    line
@@ -81,11 +70,9 @@
                    pos
                    span))]
     [`#(<> ,elements ...)
-     (eprintf "<>\n")
      (for ([(element idx) (in-indexed elements)])
        (print-formatted element))]
     [`#($$ ,element0 ,elements ...)
-     (eprintf "$$: indent at ~a\n" (get-current-col))
      (indent-at-current-col
       (lambda ()
         (print-formatted element0)
@@ -97,7 +84,6 @@
     [`#(preserve-linebreak
         ,(and element0 `#(source ,source0 ,line0 ,col0 ,pos0 ,span0))
         ,(and elements `#(source ,source ,line ,col ,pos ,span)) ...)
-     (eprintf "preserve-linebreak: indent at ~a\n" (get-current-col))
      (indent-at-current-col
       (lambda ()
         (define previous-line-no (get-current-line-number))
@@ -108,24 +94,20 @@
                    [element (in-list elements)])
           (cond
             [(> current-line-number (+ previous-line-number previous-line-span))
-             (eprintf "preserve-linebreak: different line; ")
              (print-formatted-newline)]
             [else
-             (write-char #\space)])
+             ((format-write-char) #\space)])
           (define current-line-no (get-current-line-number))
           (print-formatted element)
           (- (get-current-line-number) current-line-no))))]
     [`#(preserve-linebreak ,elements ...)
      (for ([(element idx) (in-indexed elements)])
        (when (> idx 0)
-         (write-char #\space))
+         ((format-write-char) #\space))
        (print-formatted element))]
     [`#(nest ,(? exact-integer? depth) ,element)
      (for ([i (in-range depth)])
-       (write-char #\space))
-     (eprintf "nest: print ~a spaces; set the indentation to ~a\n"
-              depth
-              (get-current-col))
+       ((format-write-char) #\space))
      (indent-at-current-col
       (lambda ()
         (print-formatted element)))]
@@ -136,24 +118,6 @@
      (define chosen-format (cdr (or (assoc chosen-option options)
                                     (list-ref options 0))))
      (print-formatted chosen-format)]))
-
-#;(TODO of the sep combinator:
-
-        #(sep ,element0 ,elements ...)
-        (define min-lines
-          (map format-expected-min-lines (cons element0 elements)))
-
-        (cond
-          [(> (apply max min-lines) 1)
-           `#($$ ,element0 ,@elements)]
-          [else
-           (define max-column
-             (+ (get-current-column)
-                (for/sum ([...])
-                  (format-expected-max-width element))))
-           (cond
-             [<= max-column (format-columns)])])
-        )
 
 (define (get-current-col)
   (define-values (line col pos)
