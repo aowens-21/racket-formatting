@@ -181,6 +181,47 @@
     (parameterize ([current-namespace ns])
       (expand stx)))
 
+  (define file-content
+    (file->string filename))
+  (define (make-file-content-peek-procedure start-pos span)
+    (unless (and (<= 1 start-pos) (<= start-pos (string-length file-content))
+                 (<= (+ start-pos span) (+ 1 (string-length file-content))))
+      (error 'make-file-content-peek-procedure
+             (string-append "the specified range is not a subinterval of the file range"
+                            "  specified range: [~a, ~a)\n"
+                            "  file range: [~a, ~a)\n")
+             start-pos
+             (+ start-pos span)
+             1
+             (+ 1 (string-length file-content))))
+    (define reading-pos start-pos)
+    (λ (peek-pos)
+      (unless (and (<= reading-pos peek-pos) (< peek-pos (+ start-pos span)))
+        (error 'file-content-peek-procedure
+               (string-append "peeking position is out of range\n"
+                              "  position: ~a\n"
+                              "  reading position: ~a\n"
+                              "  range: [~a, ~a)\n")
+               peek-pos
+               reading-pos
+               start-pos
+               (+ start-pos span)))
+      (set! reading-pos peek-pos)
+      (string-ref file-content (- peek-pos 1))))
+
+  (format-syntax-in-range filename
+                          expanded-stx
+                          1
+                          (string-length file-content)
+                          make-file-content-peek-procedure
+                          output-port))
+
+(define (format-syntax-in-range filename
+                                expanded-stx
+                                start-pos
+                                span
+                                make-peek-procedure
+                                output-port)
   (define loc-info-map
     (build-loc-info-map expanded-stx))
 
@@ -188,7 +229,9 @@
   (parameterize ([current-output-port output-port])
     (print-file-with-format
      filename
-     (file->string filename)
+     start-pos
+     span
+     make-peek-procedure
      loc-info-map)))
 
 (define (build-loc-info-map expanded-stx)
@@ -258,7 +301,7 @@
 ;; The span is the length of the input.
 (define (print-file-with-format-in-range
          filename
-         content
+         peek-char-or-special-at-pos
          loc-info-map
          start-pos
          span
@@ -274,7 +317,7 @@
           (cond
             [(>= pos end-pos)
              pos]
-            [(char=? (string-ref content (- pos 1)) #\newline)
+            [(char=? (peek-char-or-special-at-pos pos) #\newline)
              pos]
             [else
              (define loc
@@ -290,12 +333,12 @@
                 ((start-copy) next-pos)
                 (copy-current-line! next-pos)]
                [else
-                (define ch (string-ref content (- pos 1)))
+                (define ch (peek-char-or-special-at-pos pos))
                 (write-char ch)
                 (copy-current-line! (+ pos 1))])])))
       (cond
         [(and (< line-finish-pos end-pos)
-              (char=? (string-ref content (- line-finish-pos 1)) #\newline))
+              (char=? (peek-char-or-special-at-pos line-finish-pos) #\newline))
          #|
            The beginning of the next line:
 
@@ -312,7 +355,7 @@
              (cond
                [(>= pos end-pos)
                 count]
-               [(member (string-ref content (- pos 1)) '(#\space #\tab) char=?)
+               [(member (peek-char-or-special-at-pos pos) '(#\space #\tab) char=?)
                 (define loc (format-loc filename pos))
                 (when (hash-has-key? loc-info-map loc)
                   (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
@@ -323,7 +366,7 @@
                 (space-count-loop (+ 1 pos) (+ count 1))]
                [else
                 (define loc (format-loc filename pos))
-                (when (and (char=? (string-ref content (- pos 1)) #\newline)
+                (when (and (char=? (peek-char-or-special-at-pos pos) #\newline)
                            (hash-has-key? loc-info-map loc))
                   (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
                          (string-append
@@ -342,7 +385,11 @@
          (copy-loop! line-finish-pos)])))
   ((stop-copy) end-pos))
 
-(define (print-file-with-format filename file-content loc-info-map)
+(define (print-file-with-format filename
+                                start-pos
+                                overall-span
+                                make-peek-procedure
+                                loc-info-map)
 
   (define old-print-source (current-racket-format-print-source))
   (define (print-source-with-format srcloc)
@@ -353,16 +400,16 @@
     (cond
       [(and (equal? filename source)
             ;; first position
-            (<= 1 pos)
+            (<= start-pos pos)
             ;; first position
-            (<= pos (string-length file-content))
+            (< pos (+ start-pos overall-span))
             ;; last position
-            (<= (+ pos span -1) (string-length file-content)))
+            (< (+ pos span -1) (+ start-pos overall-span)))
        (indent-at-current-col
         (λ ()
           (print-file-with-format-in-range
            filename
-           file-content
+           (make-peek-procedure pos span)
            loc-info-map
            pos
            span
@@ -373,7 +420,7 @@
   (parameterize ([current-racket-format-print-source print-source-with-format])
     (print-file-with-format-in-range
      filename
-     file-content
+     (make-peek-procedure start-pos overall-span)
      loc-info-map
-     1
-     (string-length file-content))))
+     start-pos
+     overall-span)))
