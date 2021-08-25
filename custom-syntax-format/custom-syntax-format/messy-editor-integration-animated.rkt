@@ -6,11 +6,14 @@
          syntax/modread
          framework)
 
+(define INSERT-DELAY 0.06)
+(define PAUSE-DELAY 1.0)
+
 (define t (new racket:text%))
 (define f (new frame%
                [label "Testing Formatting"]
-               [width 300]
-               [height 300]))
+               [width 900]
+               [height 400]))
 (define e (new editor-canvas%
                [parent f]
                [editor t]))
@@ -136,16 +139,43 @@
              first-start-copy
              (stop-copy-inst (start-copy-inst-pos first-start-copy)))
   (for ([a-inst (in-list instructions)])
+    (unless (write-inst? a-inst)
+      (println a-inst))
     (cond [(write-inst? a-inst)
            (define original-pos (send t get-end-position))
+           (sleep INSERT-DELAY)
+           (send t begin-edit-sequence)
            (send t insert (write-inst-str a-inst))
-           (send t set-position original-pos)]
+           (send t set-position original-pos)
+           (send t end-edit-sequence)]
           [(start-copy-inst? a-inst)
            (define corresponding-stop (hash-ref start-stop-pairs
                                                 a-inst))
            (define start-pos (stop-copy-inst-pos corresponding-stop))
            (define end-pos (start-copy-inst-pos a-inst))
+           (sleep (* PAUSE-DELAY 1.5))
+           (printf "    delete [~a,~a]\n" (- start-pos 1) (- end-pos 1))
+           (send t begin-edit-sequence)
+           (send t set-position (- start-pos 1) (- end-pos 1))
+           (send t end-edit-sequence)
+           (sleep PAUSE-DELAY)
+           (send t begin-edit-sequence)
            (send t delete (- start-pos 1) (- end-pos 1))
-           (send t set-position (- start-pos 1))])))
+           (send t set-position (- start-pos 1))
+           (send t end-edit-sequence)
+           (printf "    set-position to ~a\n" (- start-pos 1))
+           (sleep PAUSE-DELAY)])))
 
-(send f show #t)
+(module+ main
+  (send f show #t)
+  (thread
+   (λ ()
+     (printf "wait for 2 seconds\n")
+     (sleep 2)
+     (send t own-caret #t)
+     (printf "start\n")
+     (send e force-display-focus #t)
+     (process-editor-instructions t format-insts)
+     (send e force-display-focus #f)
+     (printf "done\n")))
+  (yield 'wait))
