@@ -8,7 +8,11 @@
 (provide (all-defined-out)
          racket-format-config
          current-racket-format-print-source
-         default-racket-format-print-source)
+         default-racket-format-print-source
+         format-write-char
+         format-write-string
+         start-copy
+         stop-copy)
 
 ;; locations: source path × source position
 (struct format-loc (source pos) #:transparent)
