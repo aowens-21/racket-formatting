@@ -2,18 +2,19 @@
 
 (require racket/gui/base
          racket/class
+         racket/file
          custom-syntax-format
          syntax/modread
          framework)
 
-(define INSERT-DELAY 0.06)
-(define PAUSE-DELAY 1.0)
+(define INSERT-DELAY 0.01)
+(define PAUSE-DELAY 0.3)
 
 (define t (new racket:text%))
 (define f (new frame%
                [label "Testing Formatting"]
-               [width 900]
-               [height 400]))
+               [width 1150]
+               [height 600]))
 (define e (new editor-canvas%
                [parent f]
                [editor t]))
@@ -35,6 +36,24 @@
                  er
                e|)))
 })
+
+(require racket/cmdline)
+(define file-name/#f
+  (command-line
+   #:once-each
+   ["--delay" delay-time "Delay time (seconds). The default is 0.3."
+              (set! PAUSE-DELAY (string->number delay-time 10 'read))]
+   #:args ([file-name #f])
+   file-name))
+
+(cond
+  [file-name/#f
+   (set! program-text (file->string file-name/#f))]
+  [else
+   (printf "Usage: racket messy-editor-integration-animated.rkt <FILE-TO-FORMAT>\n\n")
+   (printf "Example:\n")
+   (printf "    racket messy-editor-integration-animated.rkt \\\n        ~a\n\n"
+           "../tests/custom-syntax-format/file-level/02-comments.rkt")])
 
 (send t insert program-text)
 
