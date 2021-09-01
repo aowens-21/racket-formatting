@@ -16,9 +16,9 @@
          stop-copy)
 
 ;; locations: source path × source position
-(struct format-loc (source pos) #:transparent)
+(struct format-loc (source pos) #:prefab)
 ;; info: format instructions and the complete source locations
-(struct loc-info (format srcloc) #:transparent)
+(struct loc-info (format srcloc) #:prefab)
 
 (struct special-value (snip) #:transparent)
 
