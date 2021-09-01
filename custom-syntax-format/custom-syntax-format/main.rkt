@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require racket/match
+(require racket/class
+         racket/match
          racket/file
          racket/port
          "printing.rkt")
@@ -18,6 +19,12 @@
 (struct format-loc (source pos) #:transparent)
 ;; info: format instructions and the complete source locations
 (struct loc-info (format srcloc) #:transparent)
+
+(struct special-value (snip) #:transparent)
+
+(struct write-inst (str) #:transparent)
+(struct start-copy-inst (pos) #:transparent)
+(struct stop-copy-inst (pos) #:transparent)
 
 (define (srcloc->loc srcloc)
   (format-loc (srcloc-source srcloc)
@@ -230,13 +237,40 @@
     (build-loc-info-map expanded-stx))
 
   (port-count-lines! output-port)
-  (parameterize ([current-output-port output-port])
+
+  (define format-insts '())
+
+  (parameterize ([current-output-port output-port]
+                 [format-write-char
+                  (λ (ch . args)
+                    (set! format-insts
+                          (cons (write-inst (string ch))
+                                format-insts))
+                    (apply write-char ch args))]
+                 [format-write-string
+                  (λ (str . args)
+                    (set! format-insts
+                          (cons (write-inst str)
+                                format-insts))
+                    (apply write-string str args))]
+                 [start-copy
+                  (λ (pos)
+                    (set! format-insts
+                          (cons (start-copy-inst pos)
+                                format-insts)))]
+                 [stop-copy
+                  (λ (pos)
+                    (set! format-insts
+                          (cons (stop-copy-inst pos)
+                                format-insts)))])
     (print-file-with-format
      filename
      start-pos
      span
      make-peek-procedure
-     loc-info-map)))
+     loc-info-map))
+
+  (reverse format-insts))
 
 (define (build-loc-info-map expanded-stx)
   (define names-to-srcloc-map
@@ -321,7 +355,7 @@
           (cond
             [(>= pos end-pos)
              pos]
-            [(char=? (peek-char-or-special-at-pos pos) #\newline)
+            [(eq? (peek-char-or-special-at-pos pos) #\newline)
              pos]
             [else
              (define loc
@@ -338,11 +372,22 @@
                 (copy-current-line! next-pos)]
                [else
                 (define ch (peek-char-or-special-at-pos pos))
-                (write-char ch)
+                (match ch
+                  [(? char?)
+                   (write-char ch)]
+                  [(special-value snip)
+                   (cond
+                     [(port-writes-special? (current-output-port))
+                      (write-special snip)]
+                     [else
+                      (write-string (send snip get-text
+                                          0
+                                          (send snip get-count)
+                                          #t))])])
                 (copy-current-line! (+ pos 1))])])))
       (cond
         [(and (< line-finish-pos end-pos)
-              (char=? (peek-char-or-special-at-pos line-finish-pos) #\newline))
+              (eq? (peek-char-or-special-at-pos line-finish-pos) #\newline))
          #|
            The beginning of the next line:
 
@@ -359,7 +404,7 @@
              (cond
                [(>= pos end-pos)
                 count]
-               [(member (peek-char-or-special-at-pos pos) '(#\space #\tab) char=?)
+               [(member (peek-char-or-special-at-pos pos) '(#\space #\tab) eq?)
                 (define loc (format-loc filename pos))
                 (when (hash-has-key? loc-info-map loc)
                   (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
@@ -370,7 +415,7 @@
                 (space-count-loop (+ 1 pos) (+ count 1))]
                [else
                 (define loc (format-loc filename pos))
-                (when (and (char=? (peek-char-or-special-at-pos pos) #\newline)
+                (when (and (eq? (peek-char-or-special-at-pos pos) #\newline)
                            (hash-has-key? loc-info-map loc))
                   (error 'print-file-with-format-in-range:copy-loop!:space-count-loop
                          (string-append

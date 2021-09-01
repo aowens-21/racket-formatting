@@ -57,13 +57,19 @@
 
 (send t insert program-text)
 
-(struct special-snip-value () #:transparent)
+(require pict
+         pict/snip)
+
+(send t insert
+      (new pict-snip%
+           [pict (circle 50 #:border-color "black")])
+      65)
 
 (define p (open-input-text-editor t
                                   0
                                   'end
                                   (λ (s)
-                                    (special-snip-value))
+                                    (special-value s))
                                   "untitled.rkt"
                                   #f))
 
@@ -91,7 +97,7 @@
                                                (+ (- start-pos 1)
                                                   span)
                                                (λ (s)
-                                                 (special-snip-value))
+                                                 (special-value s))
                                                "untitled.rkt"
                                                #f))
   (port-count-lines! current-port)
