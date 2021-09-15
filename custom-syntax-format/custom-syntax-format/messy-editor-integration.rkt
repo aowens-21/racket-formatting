@@ -76,7 +76,7 @@
 (define format-insts-reversed
   (reverse
    (format-syntax-in-range "untitled.rkt"
-                           expanded-stx
+                           (build-loc-info-map expanded-stx)
                            1
                            (send t last-position)
                            make-text-peek-procedure

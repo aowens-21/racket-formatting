@@ -221,21 +221,18 @@
       (string-ref file-content (- peek-pos 1))))
 
   (format-syntax-in-range filename
-                          expanded-stx
+                          (build-loc-info-map expanded-stx)
                           1
                           (string-length file-content)
                           make-file-content-peek-procedure
                           output-port))
 
 (define (format-syntax-in-range filename
-                                expanded-stx
+                                loc-info-map
                                 start-pos
                                 span
                                 make-peek-procedure
                                 output-port)
-  (define loc-info-map
-    (build-loc-info-map expanded-stx))
-
   (port-count-lines! output-port)
 
   (define format-insts '())
