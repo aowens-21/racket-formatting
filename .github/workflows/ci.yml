@@ -37,4 +37,4 @@ jobs:
       - name: Running custom-syntax-format tests
         run: raco test -t -c tests/custom-syntax-format
       - name: Testing custom-syntax-format-plugin library
-        run: raco test -t -c custom-syntax-format-plugin
+        run: xvfb-run -a raco test -t -c custom-syntax-format-plugin
