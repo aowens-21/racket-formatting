@@ -58,7 +58,7 @@
  
         (let ((btn
                (new switchable-button%
-                    (label "Reverse Definitions")
+                    (label "Auto-format")
                     (callback (λ (button)
                                 (format-range-in-buffer (get-definitions-text))))
                     (parent (get-button-panel))
