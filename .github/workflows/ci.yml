@@ -30,6 +30,8 @@ jobs:
         run: raco pkg install --no-docs --auto --name custom-syntax-format ./custom-syntax-format
       - name: Installing custom-syntax-format-plugin and its dependencies
         run: raco pkg install --no-docs --auto --name custom-syntax-format-plugin ./custom-syntax-format-plugin
+      - name: Checking package dependencies
+        run: raco setup --check-pkg-deps --pkgs custom-syntax-format custom-syntax-format-plugin
       - name: Checking installed libraries
         run: raco pkg show -a
       - name: Testing custom-syntax-format library
