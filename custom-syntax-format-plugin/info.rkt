@@ -4,6 +4,8 @@
 (define deps
   '("base"
     "drracket-plugin-lib"
+    "gui-lib"
+    "pict-lib"
     "custom-syntax-format"))
 
 (define drracket-tool-names (list "DrRacket Auto-Formatting"))
