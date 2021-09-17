@@ -3,6 +3,7 @@ on:
     paths:
     - '.github/workflows/**'
     - 'custom-syntax-format/**'
+    - 'custom-syntax-format-plugin/**'
 name: CI
 jobs:
   build:
@@ -23,15 +24,17 @@ jobs:
           version: ${{ matrix.racket-version }}
       - name: Installing at-exp and test commands
         run: raco pkg install --auto base at-exp-lib compiler-lib
-      - name: Checking racket version and installed libraries
-        run: |
-          racket -v
-          raco pkg show -a
+      - name: Checking racket version
+        run: racket -v
       - name: Installing custom-syntax-format and its dependencies
         run: raco pkg install --no-docs --auto --name custom-syntax-format ./custom-syntax-format
+      - name: Installing custom-syntax-format-plugin and its dependencies
+        run: raco pkg install --no-docs --auto --name custom-syntax-format-plugin ./custom-syntax-format-plugin
       - name: Checking installed libraries
         run: raco pkg show -a
       - name: Testing custom-syntax-format library
         run: raco test -t -x -c custom-syntax-format
       - name: Running custom-syntax-format tests
         run: raco test -t -c tests/custom-syntax-format
+      - name: Testing custom-syntax-format-plugin library
+        run: raco test -t -c custom-syntax-format-plugin
